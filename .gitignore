@@ -1,0 +1,80 @@
+# Dependencies
+node_modules
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+dist-server/
+
+# Environment
+# Environment
+.env*
+!.env.example
+
+# Vercel CLI env pulls (sometimes created by tooling) - NEVER COMMIT
+.env.vercel
+.env.vercel.*
+
+# Common secret file types
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.sw?
+
+# Copilot/Claude agent tooling (dev-only)
+.agent/
+.claude/
+.github/agents/
+.github/prompts/
+.github/copilot-instructions.md
+
+# Local-only docs / notes
+docs/
+SECURITY.md
+metadata.json
+
+# Local-only maintenance scripts
+scripts/
+
+# OS
+.DS_Store
+*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+
+# Testing
+test-results/
+playwright-report/
+coverage/
+.nyc_output/
+
+# Legacy (can be removed)
+# vite.config.ts
+# server.ts
+# worker.ts
+# queue.ts
+
+# Backups / Utility
+tmp/

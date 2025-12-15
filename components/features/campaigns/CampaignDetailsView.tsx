@@ -333,6 +333,36 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
   // porque em alguns ambientes o contador da campanha pode ficar desatualizado.
   const skippedCount = (messageStats?.skipped ?? realStats?.skipped ?? campaign.skipped ?? 0);
 
+  // Stats "ao vivo" para alimentar os cards principais.
+  // Motivação: os contadores da tabela `campaigns` podem atrasar (batching/edge/cache/erro de update),
+  // enquanto `messageStats` é fonte da verdade agregada de `campaign_contacts`.
+  const liveStats = messageStats ?? realStats ?? null;
+  const sentCountForUi = liveStats?.sent ?? campaign.sent ?? 0;
+  const deliveredCountForUi = liveStats?.delivered ?? campaign.delivered ?? 0;
+  const readCountForUi = liveStats?.read ?? campaign.read ?? 0;
+  const failedCountForUi = liveStats?.failed ?? campaign.failed ?? 0;
+  const hasLiveStats = Boolean(liveStats);
+
+  // Performance sent-only "ao vivo" (melhora UX durante SENDING)
+  // - Usamos first_dispatch_at / last_sent_at quando disponíveis.
+  // - Se last_sent_at ainda não existe, estimamos usando Date.now() e mostramos isso no subtexto.
+  const isSendingNow = campaign.status === CampaignStatus.SENDING;
+  const dispatchStartIso = (perf as any)?.first_dispatch_at || (campaign as any)?.firstDispatchAt || null;
+  const dispatchEndIsoFromDb = (perf as any)?.last_sent_at || (campaign as any)?.lastSentAt || null;
+  const dispatchEndIsoEstimated = (!dispatchEndIsoFromDb && isSendingNow && dispatchStartIso)
+    ? new Date().toISOString()
+    : null;
+  const dispatchEndIso = dispatchEndIsoFromDb || dispatchEndIsoEstimated;
+  const dispatchDurationMsLive = (dispatchStartIso && dispatchEndIso)
+    ? Math.max(0, new Date(dispatchEndIso).getTime() - new Date(dispatchStartIso).getTime())
+    : null;
+  const throughputMpsLive = (dispatchDurationMsLive && dispatchDurationMsLive > 0)
+    ? (Number(sentCountForUi || 0) / (dispatchDurationMsLive / 1000))
+    : null;
+  const isPerfEstimatedLive = Boolean(dispatchEndIsoEstimated);
+  const throughputMpsForUi = isPerfEstimatedLive ? throughputMpsLive : Number(perf?.throughput_mps);
+  const dispatchDurationMsForUi = isPerfEstimatedLive ? dispatchDurationMsLive : Number(perf?.dispatch_duration_ms);
+
   // Format scheduled time for display
   const scheduledTimeDisplay = campaign.scheduledAt
     ? new Date(campaign.scheduledAt).toLocaleString('pt-BR', {
@@ -487,7 +517,7 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <DetailCard
           title="Enviadas"
-          value={(campaign.sent ?? 0).toLocaleString()}
+          value={Number(sentCountForUi || 0).toLocaleString()}
           subvalue={`${campaign.recipients ?? 0} destinatários`}
           icon={Clock}
           color="#a1a1aa"
@@ -496,8 +526,10 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
         />
         <DetailCard
           title="Entregues"
-          value={(campaign.delivered ?? 0) > 0 ? (campaign.delivered ?? 0).toLocaleString() : '—'}
-          subvalue={(campaign.delivered ?? 0) > 0 ? `${(((campaign.delivered ?? 0) / (campaign.recipients ?? 1)) * 100).toFixed(1)}% taxa de entrega` : 'Aguardando webhook'}
+          value={hasLiveStats ? Number(deliveredCountForUi || 0).toLocaleString() : ((campaign.delivered ?? 0) > 0 ? (campaign.delivered ?? 0).toLocaleString() : '—')}
+          subvalue={hasLiveStats
+            ? `${(((Number(deliveredCountForUi || 0)) / (campaign.recipients ?? 1)) * 100).toFixed(1)}% taxa de entrega`
+            : ((campaign.delivered ?? 0) > 0 ? `${(((campaign.delivered ?? 0) / (campaign.recipients ?? 1)) * 100).toFixed(1)}% taxa de entrega` : 'Aguardando webhook')}
           icon={CheckCircle2}
           color="#10b981"
           isActive={filterStatus === MessageStatus.DELIVERED}
@@ -505,8 +537,10 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
         />
         <DetailCard
           title="Lidas"
-          value={(campaign.read ?? 0) > 0 ? (campaign.read ?? 0).toLocaleString() : '—'}
-          subvalue={(campaign.read ?? 0) > 0 ? `${(((campaign.read ?? 0) / (campaign.recipients ?? 1)) * 100).toFixed(1)}% taxa de abertura` : 'Aguardando webhook'}
+          value={hasLiveStats ? Number(readCountForUi || 0).toLocaleString() : ((campaign.read ?? 0) > 0 ? (campaign.read ?? 0).toLocaleString() : '—')}
+          subvalue={hasLiveStats
+            ? `${(((Number(readCountForUi || 0)) / (campaign.recipients ?? 1)) * 100).toFixed(1)}% taxa de abertura`
+            : ((campaign.read ?? 0) > 0 ? `${(((campaign.read ?? 0) / (campaign.recipients ?? 1)) * 100).toFixed(1)}% taxa de abertura` : 'Aguardando webhook')}
           icon={Eye}
           color="#3b82f6"
           isActive={filterStatus === MessageStatus.READ}
@@ -523,7 +557,7 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
         />
         <DetailCard
           title="Falhas"
-          value={(campaign.failed ?? 0).toLocaleString()}
+          value={Number(failedCountForUi || 0).toLocaleString()}
           subvalue="Números inválidos ou bloqueio"
           icon={AlertCircle}
           color="#ef4444"
@@ -575,9 +609,9 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
             <div className="sm:col-span-2">
               <DetailCard
                 title="Velocidade (throughput)"
-                value={formatThroughput(Number(perf?.throughput_mps))}
+                value={formatThroughput(throughputMpsForUi)}
                 subvalue={(() => {
-                  const mps = Number(perf?.throughput_mps);
+                  const mps = Number(throughputMpsForUi);
                   const hasMps = Number.isFinite(mps) && mps > 0;
 
                   if (!hasMps) {
@@ -586,9 +620,15 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
                     return 'Ainda sem dados suficientes para medir throughput.';
                   }
 
-                  return baselineThroughputMedian
+                  const baselineText = baselineThroughputMedian
                     ? `Baseline (mediana): ${baselineThroughputMedian.toFixed(2)} msg/s`
                     : 'Sem baseline suficiente (rode mais campanhas para comparar).';
+
+                  if (isPerfEstimatedLive) {
+                    return `Ao vivo (estimado). ${baselineText}`;
+                  }
+
+                  return baselineText;
                 })()}
                 icon={CheckCircle2}
                 color="#10b981"
@@ -597,7 +637,7 @@ export const CampaignDetailsView: React.FC<CampaignDetailsViewProps> = ({
 
             <DetailCard
               title="Tempo total"
-              value={formatDurationMs(Number(perf?.dispatch_duration_ms))}
+              value={formatDurationMs(dispatchDurationMsForUi)}
               subvalue="Do primeiro envio até o último envio"
               icon={Clock}
               color="#a1a1aa"

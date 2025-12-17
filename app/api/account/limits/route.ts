@@ -16,7 +16,9 @@ async function fetchLimitsFromMeta(phoneNumberId: string, accessToken: string) {
   // Parallel fetch for throughput/quality and messaging tier
   const [throughputResponse, tierResponse] = await Promise.all([
     fetch(
-      `https://graph.facebook.com/v24.0/${phoneNumberId}?fields=throughput,quality_score`,
+      // Observação: para WhatsAppBusinessPhoneNumber, o campo mais confiável para qualidade é `quality_rating`.
+      // Mantemos `quality_score` como fallback quando disponível.
+      `https://graph.facebook.com/v24.0/${phoneNumberId}?fields=throughput,quality_rating,quality_score`,
       { headers: { 'Authorization': `Bearer ${accessToken}` } }
     ),
     fetch(
@@ -41,8 +43,14 @@ async function fetchLimitsFromMeta(phoneNumberId: string, accessToken: string) {
   const throughputLevel = throughputData.throughput?.level === 'high' ? 'HIGH' : 'STANDARD'
   
   // Parse quality score
-  const rawQuality = throughputData.quality_score?.score?.toUpperCase()
-  const qualityScore = ['GREEN', 'YELLOW', 'RED'].includes(rawQuality) ? rawQuality : 'UNKNOWN'
+  // Prefer `quality_rating` (string), fallback to `quality_score.score` (quando existir).
+  const rawQuality = (
+    throughputData.quality_rating ||
+    throughputData.quality_score?.score ||
+    ''
+  )
+  const normalizedQuality = typeof rawQuality === 'string' ? rawQuality.toUpperCase() : String(rawQuality).toUpperCase()
+  const qualityScore = ['GREEN', 'YELLOW', 'RED'].includes(normalizedQuality) ? normalizedQuality : 'UNKNOWN'
   
   // Parse messaging tier
   let messagingTier = 'TIER_250'

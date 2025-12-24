@@ -565,7 +565,6 @@ export function DashboardShell({
         { path: '/conversations', label: 'Conversas', icon: MessageCircle, hidden: true },
         { path: '/templates', label: 'Templates', icon: FileText },
         { path: '/contacts', label: 'Contatos', icon: Users },
-        { path: '/forms', label: 'Formulários', icon: ClipboardList },
         { path: '/settings', label: 'Configurações', icon: Settings },
     ].filter(item => !item.hidden)
 
@@ -582,7 +581,6 @@ export function DashboardShell({
         if (path.startsWith('/flows/builder/')) return 'Editor de Flow'
         if (path === '/templates') return 'Templates'
         if (path.startsWith('/contacts')) return 'Contatos'
-        if (path.startsWith('/forms')) return 'Formulários'
         if (path.startsWith('/settings')) return 'Configurações'
         return 'App'
     }
@@ -598,9 +596,64 @@ export function DashboardShell({
         )
     }
 
+    const isBuilderRoute = pathname?.startsWith('/builder') ?? false
+
+    if (isBuilderRoute) {
+        return (
+            <PageLayoutProvider>
+                <div
+                    className="min-h-screen bg-zinc-950 text-gray-100 flex font-sans selection:bg-primary-500/30"
+                    style={{
+                        "--builder-sidebar-width": "56px",
+                        "--background": "oklch(0 0 0)",
+                        "--sidebar": "oklch(0 0 0)",
+                        "--border": "oklch(0.27 0 0)",
+                    } as React.CSSProperties}
+                >
+                    <aside className="flex h-screen w-14 shrink-0 flex-col items-center gap-3 border-r border-white/5 bg-zinc-950 py-3 z-40">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-linear-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-900/20">
+                            <Zap className="text-white" size={18} fill="currentColor" />
+                        </div>
+                        <nav className="flex flex-1 flex-col items-center gap-1.5 pt-1">
+                            {navItems.map((item) => (
+                                <PrefetchLink
+                                    key={item.path}
+                                    href={item.path}
+                                    className={`group flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-gray-400 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white ${pathname === item.path ? 'bg-white/5 text-white' : ''}`}
+                                    onMouseEnter={() => prefetchRoute(item.path)}
+                                    title={item.label}
+                                >
+                                    <item.icon size={16} />
+                                </PrefetchLink>
+                            ))}
+                        </nav>
+                        <button
+                            onClick={handleLogout}
+                            disabled={isLoggingOut}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                            title="Sair"
+                        >
+                            {isLoggingOut ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-white" />
+                            ) : (
+                                <LogOut size={16} />
+                            )}
+                        </button>
+                        <div className="text-[10px] text-gray-700 font-mono">
+                            v{process.env.NEXT_PUBLIC_APP_VERSION}
+                        </div>
+                    </aside>
+                    <div className="flex-1 min-w-0">
+                        {children}
+                    </div>
+                </div>
+            </PageLayoutProvider>
+        )
+    }
+
     return (
         <PageLayoutProvider>
-            <div className="min-h-screen bg-grid-dots text-gray-100 flex font-sans selection:bg-primary-500/30">
+            <div className="min-h-screen text-gray-100 flex font-sans selection:bg-primary-500/30">
             {/* Mobile Overlay */}
             {isMobileMenuOpen && (
                 <div
@@ -637,7 +690,7 @@ export function DashboardShell({
                         <div>
                             <PrefetchLink
                                 href="/campaigns/new"
-                                className="w-full group relative flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all shadow-lg shadow-primary-900/20 overflow-hidden"
+                                className="group relative inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all shadow-lg shadow-primary-900/20 overflow-hidden"
                             >
                                 <div className="absolute inset-0 bg-primary-600 group-hover:bg-primary-500 transition-colors"></div>
                                 <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>

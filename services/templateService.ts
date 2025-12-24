@@ -1,4 +1,5 @@
 import { Template, TemplateStatus } from '../types';
+import { canonicalTemplateCategory } from '@/lib/template-category';
 
 export class TemplateServiceError extends Error {
   constructor(message: string, public code: 'NOT_CONFIGURED' | 'FETCH_FAILED') {
@@ -96,7 +97,14 @@ export const templateService = {
       );
     }
 
-    return response.json();
+    const data = await response.json().catch(() => [])
+    if (!Array.isArray(data)) return []
+
+    // Normaliza categoria para o padrão do app (ex.: UTILITY -> UTILIDADE)
+    return (data as any[]).map((t) => ({
+      ...t,
+      category: canonicalTemplateCategory(t?.category),
+    })) as Template[]
   },
 
   sync: async (): Promise<number> => {

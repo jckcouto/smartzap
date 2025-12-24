@@ -114,9 +114,9 @@ export default function ManualDraftEditorPage({
             Voltar
           </Button>
           <div>
-            <PageTitle>Builder de Template (Manual)</PageTitle>
+            <PageTitle>Novo template</PageTitle>
             <PageDescription>
-              Editor no estilo Meta. Configure o conteúdo e envie para aprovação.
+              Crie seu template e envie pra aprovação.
             </PageDescription>
           </div>
         </div>

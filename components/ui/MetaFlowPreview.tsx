@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { X, MoreVertical } from 'lucide-react'
 
 type FlowComponent = Record<string, any>
@@ -51,16 +51,22 @@ function s(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback
 }
 
-function getFooter(children: FlowComponent[]): { label: string; disabled: boolean } {
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .trim()
+}
+
+function getFooter(children: FlowComponent[]): { label: string } {
   const footer = children.find((c) => c && c.type === 'Footer')
   const label = (footer ? s(footer.label, '') : '').trim() || 'Continue'
-  // No preview da Meta o CTA aparece frequentemente desabilitado.
-  const disabled = true
-  return { label, disabled }
+  return { label }
 }
 
 function renderBasicText(text: string, idx: number) {
-  const t = text.trim()
+  const t = stripMarkdown(text || '')
   if (!t) return null
   return (
     <div key={`bt_${idx}`} className="text-[14px] leading-snug text-zinc-100 whitespace-pre-wrap">
@@ -69,27 +75,67 @@ function renderBasicText(text: string, idx: number) {
   )
 }
 
-function renderTextEntry(comp: FlowComponent, idx: number) {
+function getOptions(comp: FlowComponent): Array<{ id?: string; title?: string }> {
+  if (Array.isArray(comp['data-source'])) return comp['data-source'] as Array<{ id?: string; title?: string }>
+  if (Array.isArray(comp.options)) return comp.options as Array<{ id?: string; title?: string }>
+  return []
+}
+
+function renderTextEntry(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
   const label = (s(comp.label, 'Campo') || 'Campo').trim()
+  const inputType = s(comp['input-type'], '').trim()
+  const name = s(comp.name, `field_${idx}`)
+  const type = inputType === 'email' ? 'email' : inputType === 'phone' ? 'tel' : inputType === 'number' ? 'number' : 'text'
+  const value = values[name] ?? ''
   return (
     <div key={`te_${idx}`} className="space-y-2">
-      <div className="h-12 rounded-lg border border-white/15 bg-white/5 px-4 flex items-center text-[16px] text-zinc-400">
-        {label}
-      </div>
+      <div className="text-[14px] text-zinc-200">{label}</div>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))}
+        placeholder="Digite aqui"
+        className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-[15px] text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      />
     </div>
   )
 }
 
-function renderOptIn(comp: FlowComponent, idx: number) {
-  const text = (s(comp.text, '') || '').trim()
+function renderTextArea(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
+  const label = (s(comp.label, 'Campo') || 'Campo').trim()
+  const name = s(comp.name, `field_${idx}`)
+  const value = values[name] ?? ''
+  return (
+    <div key={`ta_${idx}`} className="space-y-2">
+      <div className="text-[14px] text-zinc-200">{label}</div>
+      <textarea
+        value={value}
+        onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))}
+        placeholder="Digite aqui"
+        rows={3}
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[15px] text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      />
+    </div>
+  )
+}
+
+function renderOptIn(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
+  const text = (s(comp.text, '') || s(comp.label, '') || '').trim()
   if (!text) return null
+  const name = s(comp.name, `optin_${idx}`)
+  const checked = !!values[name]
 
   // Heurística simples pra ficar parecido com os prints: realçar “Leia mais”.
   const parts = text.split(/(Leia mais)/i)
 
   return (
-    <div key={`oi_${idx}`} className="flex items-start gap-3">
-      <div className="mt-1 h-5 w-5 rounded border border-white/30 bg-white/5" />
+    <label key={`oi_${idx}`} className="flex items-start gap-3 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.checked }))}
+        className="mt-1 h-5 w-5 rounded border border-white/30 bg-white/5 accent-emerald-400"
+      />
       <div className="text-[15px] text-zinc-300 leading-snug">
         {parts.map((p, i) => {
           if (/^Leia mais$/i.test(p)) {
@@ -102,80 +148,144 @@ function renderOptIn(comp: FlowComponent, idx: number) {
           return <React.Fragment key={i}>{p}</React.Fragment>
         })}
       </div>
-    </div>
+    </label>
   )
 }
 
-function renderRadioGroup(comp: FlowComponent, idx: number) {
+function isRequiredSatisfied(comp: FlowComponent, values: Record<string, any>, idx: number): boolean {
+  if (!comp?.required) return true
+  const type = s(comp?.type, '')
+  const name = s(comp.name, `field_${idx}`)
+  const value = values[name]
+
+  if (type === 'CheckboxGroup') return Array.isArray(value) && value.length > 0
+  if (type === 'OptIn') return !!value
+  return value !== undefined && value !== null && String(value).trim().length > 0
+}
+
+function renderRadioGroup(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
   const label = (s(comp.label, '') || '').trim()
-  const options = Array.isArray(comp.options) ? comp.options : []
+  const options = getOptions(comp)
+  const name = s(comp.name, `radio_${idx}`)
+  const selected = values[name] ?? ''
 
   return (
     <div key={`rg_${idx}`} className="space-y-3">
-      {label ? <div className="text-[18px] font-semibold text-zinc-100">{label}</div> : null}
-      <div className="space-y-5">
+      {label ? <div className="text-[14px] text-zinc-200">{label}</div> : null}
+      <div className="space-y-3">
         {(options.length ? options : [{ id: 'opcao_1', title: 'Opção 1' }]).map((o: any, j: number) => (
-          <div key={`rg_${idx}_${j}`} className="flex items-center justify-between gap-4">
-            <div className="text-[18px] text-zinc-300">{s(o?.title, 'Opção')}</div>
-            <div className="h-6 w-6 rounded-full border border-white/30" />
-          </div>
+          <label key={`rg_${idx}_${j}`} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 cursor-pointer">
+            <div className="text-[15px] text-zinc-300">{s(o?.title, 'Opção')}</div>
+            <input
+              type="radio"
+              name={name}
+              value={s(o?.id, s(o?.title, String(j)))}
+              checked={selected === s(o?.id, s(o?.title, String(j)))}
+              onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))}
+              className="h-5 w-5 accent-emerald-400"
+            />
+          </label>
         ))}
       </div>
     </div>
   )
 }
 
-function renderCheckboxGroup(comp: FlowComponent, idx: number) {
+function renderCheckboxGroup(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
   const label = (s(comp.label, '') || '').trim()
-  const options = Array.isArray(comp.options) ? comp.options : []
+  const options = getOptions(comp)
+  const name = s(comp.name, `check_${idx}`)
+  const selected = Array.isArray(values[name]) ? values[name] : []
 
   return (
     <div key={`cg_${idx}`} className="space-y-3">
-      {label ? <div className="text-[18px] font-semibold text-zinc-100">{label}</div> : null}
-      <div className="space-y-5">
+      {label ? <div className="text-[14px] text-zinc-200">{label}</div> : null}
+      <div className="space-y-3">
         {(options.length ? options : [{ id: 'opcao_1', title: 'Opção 1' }]).map((o: any, j: number) => (
-          <div key={`cg_${idx}_${j}`} className="flex items-center justify-between gap-4">
-            <div className="text-[18px] text-zinc-300">{s(o?.title, 'Opção')}</div>
-            <div className="h-6 w-6 rounded border border-white/30" />
-          </div>
+          <label key={`cg_${idx}_${j}`} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 cursor-pointer">
+            <div className="text-[15px] text-zinc-300">{s(o?.title, 'Opção')}</div>
+            <input
+              type="checkbox"
+              value={s(o?.id, s(o?.title, String(j)))}
+              checked={selected.includes(s(o?.id, s(o?.title, String(j))))}
+              onChange={(e) => {
+                const v = s(o?.id, s(o?.title, String(j)))
+                setValues((prev) => {
+                  const curr = Array.isArray(prev[name]) ? prev[name] : []
+                  return {
+                    ...prev,
+                    [name]: e.target.checked ? [...curr, v] : curr.filter((x: string) => x !== v),
+                  }
+                })
+              }}
+              className="h-5 w-5 accent-emerald-400"
+            />
+          </label>
         ))}
       </div>
     </div>
   )
 }
 
-function renderDropdown(comp: FlowComponent, idx: number) {
+function renderDropdown(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
   const label = (s(comp.label, '') || 'Select').trim()
+  const options = getOptions(comp)
+  const name = s(comp.name, `dropdown_${idx}`)
+  const value = values[name] ?? ''
   return (
     <div key={`dd_${idx}`} className="space-y-2">
-      <div className="h-12 rounded-lg border border-white/15 bg-white/5 px-4 flex items-center text-[16px] text-zinc-400">
-        {label}
-      </div>
+      <div className="text-[14px] text-zinc-200">{label}</div>
+      <select
+        value={value}
+        onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))}
+        className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-[15px] text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      >
+        <option value="" disabled>
+          Selecionar opção
+        </option>
+        {(options.length ? options : [{ id: 'opcao_1', title: 'Opção 1' }]).map((o: any, j: number) => (
+          <option key={`dd_${idx}_${j}`} value={s(o?.id, s(o?.title, String(j)))}>
+            {s(o?.title, 'Opção')}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }
 
-function renderDatePicker(comp: FlowComponent, idx: number) {
+function renderDatePicker(comp: FlowComponent, idx: number, values: Record<string, any>, setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>) {
   const label = (s(comp.label, '') || 'Date').trim()
+  const name = s(comp.name, `date_${idx}`)
+  const value = values[name] ?? ''
   return (
     <div key={`dp_${idx}`} className="space-y-2">
-      <div className="h-12 rounded-lg border border-white/15 bg-white/5 px-4 flex items-center text-[16px] text-zinc-400">
-        {label}
-      </div>
+      <div className="text-[14px] text-zinc-200">{label}</div>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => setValues((prev) => ({ ...prev, [name]: e.target.value }))}
+        className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-[15px] text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+      />
     </div>
   )
 }
 
-function renderComponent(comp: FlowComponent, idx: number) {
+function renderComponent(
+  comp: FlowComponent,
+  idx: number,
+  values: Record<string, any>,
+  setValues: React.Dispatch<React.SetStateAction<Record<string, any>>>,
+) {
   const type = s(comp?.type, '')
 
-  if (type === 'BasicText') return renderBasicText(s(comp.text, ''), idx)
-  if (type === 'TextEntry') return renderTextEntry(comp, idx)
-  if (type === 'OptIn') return renderOptIn(comp, idx)
-  if (type === 'RadioButtonsGroup') return renderRadioGroup(comp, idx)
-  if (type === 'CheckboxGroup') return renderCheckboxGroup(comp, idx)
-  if (type === 'Dropdown') return renderDropdown(comp, idx)
-  if (type === 'DatePicker') return renderDatePicker(comp, idx)
+  if (type === 'BasicText' || type === 'TextBody' || type === 'RichText') return renderBasicText(s(comp.text, ''), idx)
+  if (type === 'TextArea') return renderTextArea(comp, idx, values, setValues)
+  if (type === 'TextEntry' || type === 'TextInput') return renderTextEntry(comp, idx, values, setValues)
+  if (type === 'OptIn') return renderOptIn(comp, idx, values, setValues)
+  if (type === 'RadioButtonsGroup') return renderRadioGroup(comp, idx, values, setValues)
+  if (type === 'CheckboxGroup') return renderCheckboxGroup(comp, idx, values, setValues)
+  if (type === 'Dropdown') return renderDropdown(comp, idx, values, setValues)
+  if (type === 'DatePicker') return renderDatePicker(comp, idx, values, setValues)
 
   return null
 }
@@ -185,6 +295,7 @@ export function MetaFlowPreview(props: {
   className?: string
 }) {
   const parsed = useMemo(() => parseFlowJson(props.flowJson), [props.flowJson])
+  const [values, setValues] = useState<Record<string, any>>({})
 
   const children = parsed.screen?.layout?.children || []
   const footer = getFooter(children)
@@ -211,15 +322,15 @@ export function MetaFlowPreview(props: {
 
         {/* conteúdo */}
         <div className="px-5 py-5 space-y-6 overflow-auto" style={{ height: 'calc(100% - 14rem)' }}>
-          {children.filter((c) => c?.type !== 'Footer').map((c, idx) => renderComponent(c, idx))}
+          {children.filter((c) => c?.type !== 'Footer').map((c, idx) => renderComponent(c, idx, values, setValues))}
         </div>
 
         {/* CTA + compliance */}
         <div className="absolute inset-x-0 bottom-0 px-5 pb-6 pt-4 bg-linear-to-t from-[#1f2223] via-[#1f2223] to-transparent">
           <button
             type="button"
-            disabled={footer.disabled}
-            className="w-full h-12 rounded-2xl bg-white/10 text-white/25 text-[16px] font-semibold"
+            disabled={!children.filter((c) => c?.type !== 'Footer').every((c, idx) => isRequiredSatisfied(c, values, idx))}
+            className="w-full h-12 rounded-2xl bg-white/10 text-white/80 text-[16px] font-semibold disabled:text-white/25 disabled:cursor-not-allowed"
           >
             {footer.label}
           </button>

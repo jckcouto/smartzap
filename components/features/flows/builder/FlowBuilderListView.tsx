@@ -39,20 +39,20 @@ export function FlowBuilderListView(props: {
   const canCreate = useMemo(() => newName.trim().length >= 3, [newName])
 
   return (
-    <div className="space-y-4">
-      <div className="glass-panel p-4">
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Buscar</label>
+              <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">Buscar</label>
               <Input
                 value={props.search}
                 onChange={(e) => props.onSearchChange(e.target.value)}
-                placeholder="Nome ou Meta Flow ID"
+                placeholder="Nome ou Flow ID da Meta"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Criar novo Flow</label>
+              <label className="block text-xs uppercase tracking-widest text-gray-500 mb-2">Criar novo Flow</label>
               <div className="flex gap-2">
                 <Input
                   value={newName}
@@ -106,6 +106,7 @@ export function FlowBuilderListView(props: {
             <Button
               type="button"
               variant="secondary"
+              className="bg-zinc-950/40 border border-white/10 text-gray-200 hover:text-white hover:bg-white/5"
               onClick={props.onRefresh}
               disabled={props.isLoading || props.isFetching}
             >
@@ -121,13 +122,13 @@ export function FlowBuilderListView(props: {
         </div>
       </div>
 
-      <div className="glass-panel p-0 overflow-hidden">
+      <div className="rounded-2xl border border-white/10 bg-zinc-900/60 shadow-[0_12px_30px_rgba(0,0,0,0.35)] overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-white/5">
+          <thead className="bg-zinc-950/40">
             <tr className="text-gray-300">
               <th className="px-4 py-3 font-semibold">Nome</th>
               <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Meta Flow ID</th>
+              <th className="px-4 py-3 font-semibold">Flow ID da Meta</th>
               <th className="px-4 py-3 font-semibold">Criado</th>
               <th className="px-4 py-3 font-semibold text-right">Ações</th>
             </tr>
@@ -141,7 +142,7 @@ export function FlowBuilderListView(props: {
               </tr>
             ) : (
               props.flows.map((f) => (
-                <tr key={f.id} className="border-t border-white/5 hover:bg-white/5">
+                <tr key={f.id} className="border-t border-white/10 hover:bg-white/5">
                   <td className="px-4 py-3 text-gray-200 font-medium">{f.name}</td>
                   <td className="px-4 py-3 text-gray-300">{f.status}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-300">{f.meta_flow_id || '—'}</td>
@@ -149,7 +150,7 @@ export function FlowBuilderListView(props: {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/flows/builder/${encodeURIComponent(f.id)}`}>
-                        <Button type="button" variant="secondary">
+                        <Button type="button" variant="secondary" className="bg-zinc-950/40 border border-white/10 text-gray-200 hover:text-white hover:bg-white/5">
                           Abrir
                           <ArrowRight size={16} />
                         </Button>

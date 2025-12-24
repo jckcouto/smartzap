@@ -31,8 +31,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
 
     // Atualiza o registro local para sair de "Rascunhos Manuais"
     const now = new Date().toISOString()
+
+    // Regra de UX/Produto:
+    // assim que enviamos para a Meta, o template entra em "Em análise" (PENDING).
+    // O status real (APPROVED/REJECTED) virá pela sincronização com a Meta.
+    const nextStatus = 'PENDING'
     const update: Record<string, unknown> = {
-      status: result.status || 'PENDING',
+      status: nextStatus,
       updated_at: now,
     }
 
@@ -63,7 +68,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: strin
       success: true,
       name: result.name,
       id: result.id,
-      status: result.status,
+      status: nextStatus,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal Server Error'

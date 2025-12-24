@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { ExternalLink, RefreshCw, Trash2, UploadCloud } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { flowsService, type FlowRow } from '@/services/flowsService'
+import { SendFlowDialog } from '@/components/features/flows/SendFlowDialog'
 
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—'
@@ -48,18 +49,22 @@ export function FlowPublishPanel({
   isLoading,
   isFetching,
   onRefresh,
-  onSelectTestFlowId,
 }: {
   flows: FlowRow[]
   isLoading: boolean
   isFetching: boolean
   onRefresh: () => void
-  onSelectTestFlowId?: (metaFlowId: string) => void
 }) {
   const queryClient = useQueryClient()
   const [publishingId, setPublishingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmFlow, setConfirmFlow] = useState<FlowRow | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [testFlowId, setTestFlowId] = useState<string | null>(null)
+  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published' | 'review' | 'action'>('all')
 
   const sortedFlows = useMemo(() => {
     const rows = [...(flows || [])]
@@ -71,7 +76,56 @@ export function FlowPublishPanel({
     return rows
   }, [flows])
 
-  const visibleFlows = sortedFlows.slice(0, 3)
+  const visibleFlows = sortedFlows.filter((flow) => {
+    if (statusFilter === 'all') return true
+    const metaStatus = String(flow.meta_status || '').toUpperCase()
+    const hasErrors = Array.isArray(flow.meta_validation_errors)
+      ? flow.meta_validation_errors.length > 0
+      : !!flow.meta_validation_errors
+
+    if (statusFilter === 'draft') return !metaStatus
+    if (statusFilter === 'published') return metaStatus === 'PUBLISHED'
+    if (statusFilter === 'review') return metaStatus === 'PENDING' || metaStatus === 'IN_REVIEW'
+    if (statusFilter === 'action') return metaStatus === 'REJECTED' || metaStatus === 'ERROR' || hasErrors
+    return true
+  })
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev
+      const visibleIds = new Set(visibleFlows.map((flow) => flow.id))
+      let changed = false
+      const next = new Set<string>()
+      prev.forEach((id) => {
+        if (visibleIds.has(id)) {
+          next.add(id)
+        } else {
+          changed = true
+        }
+      })
+      if (!changed && next.size === prev.size) return prev
+      return next
+    })
+  }, [visibleFlows])
+
+  const filterCounts = useMemo(() => {
+    const counts = { all: sortedFlows.length, draft: 0, published: 0, review: 0, action: 0 }
+    for (const flow of sortedFlows) {
+      const metaStatus = String(flow.meta_status || '').toUpperCase()
+      const hasErrors = Array.isArray(flow.meta_validation_errors)
+        ? flow.meta_validation_errors.length > 0
+        : !!flow.meta_validation_errors
+
+      if (!metaStatus) counts.draft += 1
+      if (metaStatus === 'PUBLISHED') counts.published += 1
+      if (metaStatus === 'PENDING' || metaStatus === 'IN_REVIEW') counts.review += 1
+      if (metaStatus === 'REJECTED' || metaStatus === 'ERROR' || hasErrors) counts.action += 1
+    }
+    return counts
+  }, [sortedFlows])
+
+  const selectedCount = selectedIds.size
+  const allVisibleSelected = visibleFlows.length > 0 && visibleFlows.every((flow) => selectedIds.has(flow.id))
 
   const handlePublish = async (flow: FlowRow) => {
     try {
@@ -81,11 +135,11 @@ export function FlowPublishPanel({
         categories: ['OTHER'],
         updateIfExists: true,
       })
-      toast.success('Flow publicado na Meta')
+      toast.success('Flow enviado para a Meta')
       queryClient.invalidateQueries({ queryKey: ['flows'] })
       onRefresh()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao publicar na Meta')
+      toast.error(e instanceof Error ? e.message : 'Erro ao enviar para a Meta')
     } finally {
       setPublishingId(null)
     }
@@ -106,109 +160,223 @@ export function FlowPublishPanel({
     }
   }
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    try {
+      setBulkDeleting(true)
+      let deleted = 0
+      let failed = 0
+      for (const flowId of selectedIds) {
+        try {
+          await flowsService.remove(flowId)
+          deleted += 1
+        } catch {
+          failed += 1
+        }
+      }
+      if (deleted > 0) {
+        toast.success(`${deleted} flow(s) excluído(s)`)
+      }
+      if (failed > 0) {
+        toast.error(`${failed} flow(s) não puderam ser excluído(s)`)
+      }
+      setSelectedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['flows'] })
+      onRefresh()
+    } finally {
+      setBulkDeleting(false)
+      setConfirmBulkDelete(false)
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 shadow-[0_12px_30px_rgba(0,0,0,0.35)] space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-base font-semibold text-white">2. Publicar</div>
-          <div className="text-xs text-gray-400 mt-1">Envie o Flow para a Meta e obtenha o flow_id.</div>
+          <div className="text-base font-semibold text-white">Flows do Builder</div>
+          <div className="text-xs text-gray-400 mt-1">Edite, envie para a Meta e teste seus flows.</div>
         </div>
         <Button
           type="button"
           variant="secondary"
+          className="bg-zinc-950/40 border border-white/10 text-gray-200 hover:text-white hover:bg-white/5"
           onClick={onRefresh}
           disabled={isLoading || isFetching}
         >
           <RefreshCw size={16} className={isFetching ? 'animate-spin' : ''} />
           Atualizar
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="text-amber-200 hover:text-amber-100 hover:bg-amber-500/10 border border-amber-500/20"
+          onClick={() => setConfirmBulkDelete(true)}
+          disabled={selectedCount === 0 || bulkDeleting}
+        >
+          <Trash2 className="h-4 w-4" />
+          {selectedCount === 0 ? 'Excluir selecionados' : `Excluir (${selectedCount})`}
+        </Button>
       </div>
 
-      <div className="text-xs text-gray-500">
-        {isLoading ? 'Carregando…' : `Mostrando ${visibleFlows.length} de ${sortedFlows.length} flow(s)`}
-        {isFetching && !isLoading ? ' (atualizando…)': ''}
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { id: 'all', label: 'Todos', count: filterCounts.all },
+          { id: 'draft', label: 'Rascunho', count: filterCounts.draft },
+          { id: 'published', label: 'Publicado', count: filterCounts.published },
+          { id: 'review', label: 'Em revisão', count: filterCounts.review },
+          { id: 'action', label: 'Requer ação', count: filterCounts.action },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setStatusFilter(item.id as typeof statusFilter)}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition',
+              statusFilter === item.id
+                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+                : 'border-white/10 bg-zinc-950/40 text-gray-300 hover:text-white',
+            )}
+          >
+            {item.label} <span className="text-gray-500">({item.count})</span>
+          </button>
+        ))}
+        <div className="text-xs text-gray-500">
+          {isLoading ? 'Carregando…' : `${sortedFlows.length} flow(s)`}
+          {isFetching && !isLoading ? ' (atualizando…)': ''}
+        </div>
       </div>
 
       {sortedFlows.length === 0 ? (
         <div className="rounded-xl border border-white/10 bg-zinc-950/40 p-4 text-sm text-gray-400">
-          Nenhum Flow ainda. Crie no Builder para começar.
+          Nenhum flow ainda. Crie no builder para começar.
         </div>
       ) : (
-        <div className="space-y-3">
-          {visibleFlows.map((flow) => {
-            const status = statusInfo(flow)
-            const isPublishing = publishingId === flow.id
-            const isDeleting = deletingId === flow.id
-            const canTest = !!flow.meta_flow_id && !!onSelectTestFlowId
-            return (
-              <div key={flow.id} className="rounded-xl border border-white/10 bg-zinc-950/40 p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{flow.name}</div>
-                    <div className="text-[11px] text-gray-500">Atualizado {formatDateTime(flow.updated_at || flow.created_at)}</div>
-                  </div>
-                  <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border', status.className)}>
-                    {status.label}
-                  </span>
-                </div>
-
-                <div className="text-xs text-gray-400 font-mono">Meta Flow ID: {flow.meta_flow_id || '—'}</div>
-
-                {flow.meta_preview_url ? (
-                  <a
-                    className="inline-flex items-center gap-1 text-xs text-gray-300 hover:text-white underline underline-offset-2"
-                    href={String(flow.meta_preview_url)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Abrir preview
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                ) : null}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handlePublish(flow)}
-                    disabled={isPublishing}
-                    className="bg-emerald-500 text-black hover:bg-emerald-400"
-                  >
-                    <UploadCloud className={cn('h-4 w-4', isPublishing ? 'animate-pulse' : '')} />
-                    {isPublishing ? 'Publicando…' : (status.label === 'Publicado' ? 'Atualizar' : 'Publicar')}
-                  </Button>
-                  <Link href={`/flows/builder/${encodeURIComponent(flow.id)}`}>
-                    <Button size="sm" variant="secondary">
-                      Abrir Builder
-                    </Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => flow.meta_flow_id && onSelectTestFlowId?.(String(flow.meta_flow_id))}
-                    disabled={!canTest}
-                  >
-                    Testar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmFlow(flow)}
-                    disabled={isDeleting}
-                    className="text-amber-300 hover:text-amber-200"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Excluir
-                  </Button>
-                </div>
-              </div>
-            )
-          })}
-
-          {sortedFlows.length > visibleFlows.length && (
-            <div className="text-xs text-gray-500">
-              Mostrando {visibleFlows.length} de {sortedFlows.length}. Abra o Builder para ver todos.
-            </div>
-          )}
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-950/60 border-b border-white/10 text-gray-500 uppercase tracking-widest text-[11px]">
+                <tr>
+                  <th className="px-4 py-3 font-semibold w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos"
+                      checked={allVisibleSelected}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setSelectedIds(new Set(visibleFlows.map((flow) => flow.id)))
+                        } else {
+                          setSelectedIds(new Set())
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-white/20 bg-zinc-950/40 text-emerald-400"
+                    />
+                  </th>
+                  <th className="px-4 py-3 font-semibold">Nome</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Flow ID da Meta</th>
+                  <th className="px-4 py-3 font-semibold">Atualizado</th>
+                  <th className="px-4 py-3 font-semibold text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {visibleFlows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-gray-500">
+                      Nenhum flow nesse filtro.
+                    </td>
+                  </tr>
+                ) : (
+                  visibleFlows.map((flow) => {
+                    const status = statusInfo(flow)
+                    const isPublishing = publishingId === flow.id
+                    const isDeleting = deletingId === flow.id
+                    const canTest = !!flow.meta_flow_id
+                    return (
+                      <tr key={flow.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`Selecionar ${flow.name}`}
+                            checked={selectedIds.has(flow.id)}
+                            onChange={(event) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev)
+                                if (event.target.checked) next.add(flow.id)
+                                else next.delete(flow.id)
+                                return next
+                              })
+                            }}
+                            className="h-4 w-4 rounded border-white/20 bg-zinc-950/40 text-emerald-400"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-semibold text-white">{flow.name}</div>
+                          {flow.meta_preview_url ? (
+                            <a
+                              className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-white underline underline-offset-2"
+                              href={String(flow.meta_preview_url)}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Abrir preview
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border', status.className)}>
+                            {status.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-300 font-mono">
+                          {flow.meta_flow_id || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-400">
+                          {formatDateTime(flow.updated_at || flow.created_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handlePublish(flow)}
+                              disabled={isPublishing}
+                              className="bg-white text-black hover:bg-gray-200"
+                            >
+                              <UploadCloud className={cn('h-4 w-4', isPublishing ? 'animate-pulse' : '')} />
+                              {isPublishing ? 'Enviando…' : (status.label === 'Publicado' ? 'Atualizar envio' : 'Enviar para Meta')}
+                            </Button>
+                            <Link href={`/flows/builder/${encodeURIComponent(flow.id)}`}>
+                              <Button size="sm" variant="secondary">Abrir</Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (!flow.meta_flow_id) return
+                                setTestFlowId(String(flow.meta_flow_id))
+                                setIsTestDialogOpen(true)
+                              }}
+                              disabled={!canTest}
+                            >
+                              Testar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setConfirmFlow(flow)}
+                              disabled={isDeleting}
+                              className="text-amber-300 hover:text-amber-200"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Excluir
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
         </div>
       )}
 
@@ -231,6 +399,47 @@ export function FlowPublishPanel({
               className="bg-amber-500/10 text-amber-200 border border-amber-500/30 hover:bg-amber-500/15"
             >
               {deletingId === confirmFlow?.id ? 'Excluindo…' : 'Excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <SendFlowDialog
+        hideTrigger
+        open={isTestDialogOpen}
+        onOpenChange={(open) => {
+          setIsTestDialogOpen(open)
+          if (!open) setTestFlowId(null)
+        }}
+        prefillFlowId={testFlowId || undefined}
+        flows={flows}
+        isLoadingFlows={isFetching}
+        onRefreshFlows={onRefresh}
+      />
+
+      <Dialog open={confirmBulkDelete} onOpenChange={(open) => !open && setConfirmBulkDelete(false)}>
+        <DialogContent className="sm:max-w-md bg-zinc-900/80 border border-amber-500/20 text-white">
+          <DialogHeader>
+            <DialogTitle>Excluir flows selecionados</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              {selectedCount} flow(s) serão excluído(s) permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmBulkDelete(false)}
+              className="border-white/10 bg-zinc-950/40 text-gray-200 hover:text-white hover:bg-white/5"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-amber-500/10 text-amber-200 border border-amber-500/30 hover:bg-amber-500/15"
+            >
+              {bulkDeleting ? 'Excluindo…' : 'Excluir selecionados'}
             </Button>
           </DialogFooter>
         </DialogContent>

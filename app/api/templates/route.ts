@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { templateDb } from '@/lib/supabase-db'
+import { canonicalTemplateCategory } from '@/lib/template-category'
 import { createHash } from 'crypto'
 import { fetchWithTimeout, safeJson } from '@/lib/server-http'
 
@@ -67,11 +68,12 @@ async function fetchTemplatesFromMeta(businessAccountId: string, accessToken: st
   return allTemplates.map((t: MetaTemplate) => {
     const parameterFormat = normalizeParameterFormat(t.parameter_format)
     const bodyComponent = t.components.find((c: MetaTemplateComponent) => c.type === 'BODY')
+    const canonicalCategory = canonicalTemplateCategory(t.category)
     const specHash = createHash('sha256')
       .update(JSON.stringify({
         name: t.name,
         language: t.language,
-        category: t.category,
+        category: canonicalCategory,
         parameter_format: parameterFormat,
         components: t.components,
       }))
@@ -80,7 +82,7 @@ async function fetchTemplatesFromMeta(businessAccountId: string, accessToken: st
     return {
       id: t.name,
       name: t.name,
-      category: t.category,
+      category: canonicalCategory,
       language: t.language,
       status: t.status,
       parameterFormat,

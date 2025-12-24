@@ -240,7 +240,37 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
   const manualDraftDeleteIds = manualDraftTemplates.map((t) => t.id)
 
   const hasDraftSelection = selectedManualDraftIds.size > 0
-  const isAllDraftsSelected = manualDraftTemplates.length > 0 && selectedManualDraftIds.size === manualDraftTemplates.length
+
+  const isAllDraftsSelected = manualDraftTemplates.length > 0 && manualDraftTemplates.every((t) => selectedManualDraftIds.has(t.id))
+  const isAllMetaSelected = selectableMetaTemplates.length > 0 && selectableMetaTemplates.every((t) => selectedMetaTemplates.has(t.name))
+
+  const toggleAllVisibleDrafts = () => {
+    if (manualDraftTemplates.length === 0) return
+
+    if (isAllDraftsSelected) {
+      for (const t of manualDraftTemplates) {
+        if (selectedManualDraftIds.has(t.id)) onToggleManualDraft(t.id)
+      }
+    } else {
+      for (const t of manualDraftTemplates) {
+        if (!selectedManualDraftIds.has(t.id)) onToggleManualDraft(t.id)
+      }
+    }
+  }
+
+  const toggleAllVisibleMeta = () => {
+    if (selectableMetaTemplates.length === 0) return
+
+    if (isAllMetaSelected) {
+      for (const t of selectableMetaTemplates) {
+        if (selectedMetaTemplates.has(t.name)) onToggleMetaTemplate(t.name)
+      }
+    } else {
+      for (const t of selectableMetaTemplates) {
+        if (!selectedMetaTemplates.has(t.name)) onToggleMetaTemplate(t.name)
+      }
+    }
+  }
 
   const canSendDraft = (t: Template) => {
     // Heurística simples e consistente com a UX anterior: precisa ter corpo.
@@ -422,31 +452,28 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
                   <button
                     onClick={() => {
                       if (statusFilter === 'DRAFT') {
-                        if (manualDraftTemplates.length === 0) return
-                        isAllDraftsSelected ? onClearManualDraftSelection() : onSelectAllManualDrafts()
-                        return
+                        toggleAllVisibleDrafts()
+                      } else {
+                        toggleAllVisibleMeta()
                       }
-
-                      if (selectableMetaTemplates.length === 0) return
-                      selectedMetaTemplates.size === selectableMetaTemplates.length ? onClearSelection : onSelectAllMetaTemplates
                     }}
                     disabled={statusFilter === 'DRAFT' ? manualDraftTemplates.length === 0 : selectableMetaTemplates.length === 0}
-                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedMetaTemplates.size === selectableMetaTemplates.length && selectableMetaTemplates.length > 0
-                      ? 'bg-emerald-500 border-emerald-500'
-                      : statusFilter === 'DRAFT'
-                        ? (manualDraftTemplates.length === 0
-                          ? 'border-white/10 opacity-40 cursor-not-allowed'
-                          : (isAllDraftsSelected
-                            ? 'bg-amber-500 border-amber-500'
-                            : 'border-white/20 hover:border-white/40'))
-                        : selectableMetaTemplates.length === 0
-                          ? 'border-white/10 opacity-40 cursor-not-allowed'
-                          : 'border-white/20 hover:border-white/40'
+                    className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${statusFilter === 'DRAFT'
+                      ? (manualDraftTemplates.length === 0
+                        ? 'border-white/10 opacity-40 cursor-not-allowed'
+                        : (isAllDraftsSelected
+                          ? 'bg-amber-500 border-amber-500'
+                          : 'border-white/20 hover:border-white/40'))
+                      : (selectableMetaTemplates.length === 0
+                        ? 'border-white/10 opacity-40 cursor-not-allowed'
+                        : (isAllMetaSelected
+                          ? 'bg-emerald-500 border-emerald-500'
+                          : 'border-white/20 hover:border-white/40'))
                       }`}
                   >
                     {statusFilter === 'DRAFT'
                       ? (isAllDraftsSelected && manualDraftTemplates.length > 0 && <Check className="w-3 h-3 text-black" />)
-                      : (selectedMetaTemplates.size === selectableMetaTemplates.length && selectableMetaTemplates.length > 0 && (
+                      : (isAllMetaSelected && selectableMetaTemplates.length > 0 && (
                         <Check className="w-3 h-3 text-white" />
                       ))
                     }

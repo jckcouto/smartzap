@@ -29,6 +29,7 @@ import { shouldProcessWhatsAppStatusEvent } from '@/lib/whatsapp-webhook-dedupe'
 
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { applyFlowMappingToContact } from '@/lib/flow-mapping'
+import { settingsDb } from '@/lib/supabase-db'
 
 // Get WhatsApp Access Token from centralized helper
 async function getWhatsAppAccessToken(): Promise<string | null> {
@@ -539,6 +540,28 @@ export async function POST(request: NextRequest) {
           const messageType = message.type
           const text = extractInboundText(message)
           console.log(`📩 Incoming message from ${from}: ${messageType} (Chatbot disabled)${text ? ` | text="${text}"` : ''}`)
+
+          // =================================================================
+          // Workflow Builder (MVP): run default workflow on inbound text
+          // =================================================================
+          const defaultWorkflowId =
+            (await settingsDb.get('workflow_builder_default_id')) ||
+            process.env.WORKFLOW_BUILDER_DEFAULT_ID
+          if (defaultWorkflowId && text && from) {
+            try {
+              const origin = request.nextUrl.origin
+              await fetch(`${origin}/api/builder/workflow/${defaultWorkflowId}/execute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  workflowId: defaultWorkflowId,
+                  input: { to: from, message: text },
+                }),
+              })
+            } catch (e) {
+              console.error('[Webhook] Failed to trigger builder workflow:', e)
+            }
+          }
 
           // =================================================================
           // WhatsApp Flows (MVP sem endpoint): captura submissão final

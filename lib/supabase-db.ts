@@ -24,6 +24,7 @@ import {
     CustomFieldDefinition,
 } from '../types'
 import { isSuppressionActive } from '@/lib/phone-suppressions'
+import { canonicalTemplateCategory } from '@/lib/template-category'
 
 // Gera um ID compatível com ambientes que usam UUID (preferencial) e também funciona como TEXT.
 // - Em Supabase, muitos schemas antigos usam `uuid` como PK.
@@ -1268,7 +1269,7 @@ export const templateDb = {
             return {
                 id: row.id,
                 name: row.name,
-                category: (row.category as TemplateCategory) || 'MARKETING',
+                category: canonicalTemplateCategory(row.category),
                 language: row.language,
                 status: (row.status as TemplateStatus) || 'PENDING',
                 parameterFormat: normalizeParameterFormat((row as any).parameter_format),
@@ -1296,7 +1297,7 @@ export const templateDb = {
         return {
             id: data.id,
             name: data.name,
-            category: (data.category as TemplateCategory) || 'MARKETING',
+            category: canonicalTemplateCategory(data.category),
             language: data.language,
             status: (data.status as TemplateStatus) || 'PENDING',
             parameterFormat: normalizeParameterFormat((data as any).parameter_format),

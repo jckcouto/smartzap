@@ -33,6 +33,8 @@ export type FlowFormSpecV1 = {
   fields: FlowFormFieldV1[]
 }
 
+type FlowComponent = Record<string, any>
+
 function safeString(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback
 }
@@ -141,6 +143,147 @@ export function normalizeFlowFormSpec(input: unknown, fallbackTitle?: string): F
   }
 }
 
+function asText(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function getOptions(comp: FlowComponent): FlowFormOption[] {
+  const raw = Array.isArray(comp['data-source'])
+    ? comp['data-source']
+    : Array.isArray(comp.options)
+      ? comp.options
+      : []
+  return raw
+    .map((o: any, idx: number) => ({
+      id: asText(o?.id || `opcao_${idx + 1}`) || `opcao_${idx + 1}`,
+      title: asText(o?.title || `Opção ${idx + 1}`) || `Opção ${idx + 1}`,
+    }))
+    .filter((o: FlowFormOption) => o.id && o.title)
+}
+
+export function flowJsonToFormSpec(flowJson: unknown, fallbackTitle?: string): FlowFormSpecV1 {
+  const base = normalizeFlowFormSpec({}, fallbackTitle)
+  if (!flowJson || typeof flowJson !== 'object') return base
+
+  const screens = Array.isArray((flowJson as any).screens) ? (flowJson as any).screens : []
+  const screen = screens[0]
+  const layout = screen?.layout
+  const children: FlowComponent[] = Array.isArray(layout?.children) ? layout.children : []
+
+  const title = asText(screen?.title).trim() || base.title
+  const screenId = asText(screen?.id).trim() || base.screenId
+
+  const introNode = children.find((c) => c?.type === 'TextBody' || c?.type === 'BasicText' || c?.type === 'RichText')
+  const intro = introNode ? asText(introNode.text).trim() : base.intro
+
+  const footerNode = children.find((c) => c?.type === 'Footer')
+  const submitLabel = footerNode ? asText(footerNode.label).trim() || base.submitLabel : base.submitLabel
+
+  const fields: FlowFormFieldV1[] = []
+  for (const child of children) {
+    const type = asText(child?.type)
+    if (type === 'Footer' || type === 'TextBody' || type === 'BasicText' || type === 'RichText') continue
+
+    if (type === 'TextArea') {
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.label || 'Pergunta').trim() || 'Pergunta',
+        type: 'long_text',
+        required: !!child?.required,
+      })
+      continue
+    }
+
+    if (type === 'TextInput' || type === 'TextEntry') {
+      const inputType = asText(child?.['input-type'])
+      const mappedType: FlowFormFieldType =
+        inputType === 'email' ? 'email' :
+        inputType === 'phone' ? 'phone' :
+        inputType === 'number' ? 'number' :
+        'short_text'
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.label || 'Pergunta').trim() || 'Pergunta',
+        type: mappedType,
+        required: !!child?.required,
+      })
+      continue
+    }
+
+    if (type === 'Dropdown') {
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.label || 'Pergunta').trim() || 'Pergunta',
+        type: 'dropdown',
+        required: !!child?.required,
+        options: getOptions(child),
+      })
+      continue
+    }
+
+    if (type === 'RadioButtonsGroup') {
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.label || 'Pergunta').trim() || 'Pergunta',
+        type: 'single_choice',
+        required: !!child?.required,
+        options: getOptions(child),
+      })
+      continue
+    }
+
+    if (type === 'CheckboxGroup') {
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.label || 'Pergunta').trim() || 'Pergunta',
+        type: 'multi_choice',
+        required: !!child?.required,
+        options: getOptions(child),
+      })
+      continue
+    }
+
+    if (type === 'DatePicker') {
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.label || 'Pergunta').trim() || 'Pergunta',
+        type: 'date',
+        required: !!child?.required,
+      })
+      continue
+    }
+
+    if (type === 'OptIn') {
+      fields.push({
+        id: asText(child?.name || `q_${fields.length + 1}`) || `q_${fields.length + 1}`,
+        name: normalizeFlowFieldName(asText(child?.name || `campo_${fields.length + 1}`)),
+        label: asText(child?.text || child?.label || 'Opt-in').trim() || 'Opt-in',
+        type: 'optin',
+        required: false,
+        text: asText(child?.text || child?.label || '').trim(),
+      })
+      continue
+    }
+  }
+
+  return normalizeFlowFormSpec(
+    {
+      screenId,
+      title,
+      intro,
+      submitLabel,
+      fields,
+    },
+    fallbackTitle,
+  )
+}
+
 export function generateFlowJsonFromFormSpec(form: FlowFormSpecV1): Record<string, unknown> {
   const children: any[] = []
 
@@ -210,6 +353,7 @@ export function generateFlowJsonFromFormSpec(form: FlowFormSpecV1): Record<strin
         name: field.name,
         label: field.label,
         required: !!field.required,
+        'input-type': 'number',
       })
       continue
     }
@@ -230,6 +374,8 @@ export function generateFlowJsonFromFormSpec(form: FlowFormSpecV1): Record<strin
       name: field.name,
       label: field.label,
       required: !!field.required,
+      ...(field.type === 'email' ? { 'input-type': 'email' } : {}),
+      ...(field.type === 'phone' ? { 'input-type': 'phone' } : {}),
     })
   }
 

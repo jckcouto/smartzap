@@ -5,6 +5,9 @@ export interface ChartDataPoint {
   name: string;
   sent: number;
   read: number;
+  delivered: number;
+  failed: number;
+  active: number;
 }
 
 export interface DashboardStats {
@@ -40,7 +43,7 @@ export const dashboardService = {
           'Cache-Control': 'no-cache',
         },
       }),
-      campaignService.list({ limit: 7, offset: 0, search: '', status: 'All' })
+      campaignService.getAll()
     ]);
     
     // Parse das respostas
@@ -48,14 +51,49 @@ export const dashboardService = {
       ? await statsResponse.json() 
       : { totalSent: 0, totalDelivered: 0, totalRead: 0, totalFailed: 0, activeCampaigns: 0, deliveryRate: 0 };
     
-    const campaigns: Campaign[] = campaignsResult?.data || [];
-    
-    // Chart data das campanhas recentes
-    const chartData = campaigns.slice(0, 7).map(c => ({
-      name: c.name?.substring(0, 3) || '?',
-      sent: c.recipients || 0,
-      read: c.read || 0
-    })).reverse();
+    const campaigns: Campaign[] = Array.isArray(campaignsResult) ? campaignsResult : (campaignsResult?.data || []);
+
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - 29);
+    start.setHours(0, 0, 0, 0);
+
+    const bucket = new Map<string, { sent: number; read: number; delivered: number; failed: number; active: number }>();
+    for (let i = 0; i < 30; i += 1) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      const key = day.toISOString().slice(0, 10);
+      bucket.set(key, { sent: 0, read: 0, delivered: 0, failed: 0, active: 0 });
+    }
+
+    campaigns.forEach((campaign) => {
+      const rawDate = campaign.lastSentAt || campaign.startedAt || campaign.createdAt;
+      if (!rawDate) return;
+      const date = new Date(rawDate);
+      if (Number.isNaN(date.getTime())) return;
+      const key = date.toISOString().slice(0, 10);
+      const entry = bucket.get(key);
+      if (!entry) return;
+      entry.sent += campaign.sent || campaign.recipients || 0;
+      entry.read += campaign.read || 0;
+      entry.delivered += campaign.delivered || 0;
+      entry.failed += campaign.failed || 0;
+      if (campaign.status === 'Enviando' || campaign.status === 'Agendado') {
+        entry.active += 1;
+      }
+    });
+
+    const chartData = Array.from(bucket.entries()).map(([key, value]) => {
+      const [year, month, day] = key.split('-');
+      return {
+        name: `${day}/${month}`,
+        sent: value.sent,
+        read: value.read,
+        delivered: value.delivered,
+        failed: value.failed,
+        active: value.active,
+      };
+    });
     
     return {
       sent24h: stats.totalSent.toLocaleString(),

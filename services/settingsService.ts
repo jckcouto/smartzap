@@ -35,6 +35,28 @@ export const settingsService = {
   },
 
   // =============================================================================
+  // WORKFLOW BUILDER DEFAULT
+  // =============================================================================
+
+  getWorkflowBuilderDefault: async (): Promise<{ defaultWorkflowId: string }> => {
+    const response = await fetch('/api/settings/workflow-builder')
+    if (!response.ok) throw new Error('Failed to fetch workflow builder default')
+    return response.json()
+  },
+
+  saveWorkflowBuilderDefault: async (defaultWorkflowId: string): Promise<void> => {
+    const response = await fetch('/api/settings/workflow-builder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultWorkflowId }),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error((error as any)?.error || 'Failed to save workflow builder default')
+    }
+  },
+
+  // =============================================================================
   // META APP (opcional) — debug_token e diagnóstico avançado
   // =============================================================================
 

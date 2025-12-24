@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-/* ReactFlow / XYFlow (necessário para renderização correta do canvas) */
-@import "@xyflow/react/dist/style.css";
 @import "tw-animate-css";
 @import "react-international-phone/style.css";
 
@@ -79,37 +77,37 @@
   --node-ring: hsl(240, 6%, 90%);
 
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: oklch(0 0 0);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.04 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.04 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.09 0 0);
+  --secondary: oklch(0.1 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.15 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.15 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.65 0.25 29);
+  --border: oklch(0.27 0 0);
+  --input: oklch(0.27 0 0);
+  --ring: oklch(0.8 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0 0 0);
+  --sidebar-foreground: oklch(0.65 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0 0 0);
+  --sidebar-accent: oklch(0.1 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.18 0 0);
+  --sidebar-ring: oklch(0.8 0 0);
 
   /* ================================
      INTERNATIONAL PHONE INPUT THEME
@@ -502,85 +500,6 @@ textarea:focus-visible {
   animation: pulse 1s infinite;
 }
 
-/* Handle colors matching node category */
-.node-category-message .react-flow__handle::after {
-  background: var(--node-emerald) !important;
-}
-
-.node-category-ai .react-flow__handle::after {
-  background: var(--node-violet) !important;
-}
-
-.node-category-flow .react-flow__handle::after {
-  background: var(--node-blue) !important;
-}
-
-.node-category-trigger .react-flow__handle::after {
-  background: var(--node-orange) !important;
-}
-
-.node-category-media .react-flow__handle::after {
-  background: var(--node-pink) !important;
-}
-
-.node-category-data .react-flow__handle::after {
-  background: var(--node-cyan) !important;
-}
-
-/* Edge animations */
-.react-flow__edge.selected path {
-  stroke-width: 3px;
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
-}
-
-.react-flow__edge:hover path {
-  stroke-width: 3px;
-}
-
-/* Connection line styling (when dragging) */
-.react-flow__connectionline path {
-  stroke: var(--color-primary-400);
-  stroke-width: 2px;
-  stroke-dasharray: 5, 5;
-  animation: dash-flow 1s linear infinite;
-}
-
-@keyframes dash-flow {
-  to {
-    stroke-dashoffset: -10;
-  }
-}
-
-/* 🧲 Handle hover/connecting states - efeito magnético */
-.react-flow__handle.connecting,
-.react-flow__handle:hover {
-  transform: scale(1.3);
-  transition: transform 0.15s ease-out;
-}
-
-/* Pulse effect when handle is valid target */
-.react-flow__handle.valid {
-  animation: handle-pulse 0.5s ease-out;
-}
-
-@keyframes handle-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
-  }
-
-  100% {
-    box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
-  }
-}
-
-/* Handle grow effect when dragging connection nearby */
-.react-flow__handle.connectingto,
-.react-flow__handle.connectingfrom {
-  transform: scale(1.5);
-  box-shadow: 0 0 10px 3px rgba(59, 130, 246, 0.5);
-  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
-}
-
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -620,37 +539,37 @@ textarea:focus-visible {
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: oklch(0 0 0);
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.04 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.04 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.09 0 0);
+  --secondary: oklch(0.1 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.15 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.15 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.65 0.25 29);
+  --border: oklch(0.27 0 0);
+  --input: oklch(0.27 0 0);
+  --ring: oklch(0.8 0 0);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: oklch(0 0 0);
+  --sidebar-foreground: oklch(0.65 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0 0 0);
+  --sidebar-accent: oklch(0.1 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.18 0 0);
+  --sidebar-ring: oklch(0.8 0 0);
 }
 
 @layer base {
@@ -660,111 +579,11 @@ textarea:focus-visible {
 
   body {
     @apply bg-background text-foreground;
+    background-image: radial-gradient(
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+    background-position: 0 0;
   }
-}
-
-/* ================================
-   REACT FLOW - HANDLE IMPROVEMENTS
-   ================================ */
-
-/* Override padrão do ReactFlow para handles maiores */
-.react-flow__handle {
-  width: 32px !important;
-  height: 32px !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  border-radius: 50% !important;
-  /* Posicionamento absoluto em relação ao nó */
-  position: absolute !important;
-  /* Remove qualquer shadow/outline */
-  box-shadow: none !important;
-  outline: none !important;
-}
-
-/* Garante que handle em TODOS os estados seja transparente */
-.react-flow__handle,
-.react-flow__handle:hover,
-.react-flow__handle:focus,
-.react-flow__handle:active,
-.react-flow__handle.connectingto,
-.react-flow__handle.connectingfrom,
-.react-flow__handle.valid,
-.react-flow__handle.connected,
-.react-flow__handle[data-handlepos] {
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-}
-
-/* Handle direito - centralizado verticalmente na borda direita */
-.react-flow__handle-right:not([data-dynamic]) {
-  right: -16px !important;
-  top: 50% !important;
-  bottom: auto !important;
-  left: auto !important;
-  transform: translateY(-50%) !important;
-}
-
-/* Handles dinâmicos (com data-dynamic) - usam posição inline */
-.react-flow__handle-right[data-dynamic] {
-  right: -16px !important;
-  bottom: auto !important;
-  left: auto !important;
-  transform: translateY(-50%) !important;
-  /* top vem do style inline */
-}
-
-/* Handle esquerdo - centralizado verticalmente na borda esquerda */
-.react-flow__handle-left {
-  left: -16px !important;
-  top: 50% !important;
-  bottom: auto !important;
-  right: auto !important;
-  transform: translateY(-50%) !important;
-}
-
-/* Handle superior - centralizado horizontalmente na borda superior */
-.react-flow__handle-top {
-  top: -16px !important;
-  left: 50% !important;
-  bottom: auto !important;
-  right: auto !important;
-  transform: translateX(-50%) !important;
-}
-
-/* Handle inferior - centralizado horizontalmente na borda inferior */
-.react-flow__handle-bottom {
-  bottom: -16px !important;
-  left: 50% !important;
-  top: auto !important;
-  right: auto !important;
-  transform: translateX(-50%) !important;
-}
-
-/* Linha de conexão mais visível */
-.react-flow__connection-line {
-  stroke: var(--color-primary-400) !important;
-  stroke-width: 2px !important;
-}
-
-/* Edge selecionada */
-.react-flow__edge.selected .react-flow__edge-path {
-  stroke: var(--color-primary-400) !important;
-  stroke-width: 2.5px !important;
-}
-
-/* Edge hover */
-.react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--color-primary-300) !important;
-}
-
-/* Quando está conectando, adiciona classe ao wrapper */
-.react-flow.connecting .react-flow__handle:not(.connectingto):not(.connectingfrom) {
-  opacity: 0.5;
-}
-
-/* Handle que pode receber conexão */
-.react-flow__handle.valid {
-  box-shadow: 0 0 12px 4px rgba(16, 185, 129, 0.5) !important;
 }

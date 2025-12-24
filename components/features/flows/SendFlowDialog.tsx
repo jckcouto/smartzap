@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Send, RefreshCw } from 'lucide-react'
 
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { FlowRow } from '@/services/flowsService'
+import { settingsService } from '@/services'
 
 type SendFlowPayload = {
   to: string
@@ -45,6 +46,10 @@ export function SendFlowDialog(props: {
   isLoadingFlows?: boolean
   onRefreshFlows?: () => void
   triggerLabel?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  prefillFlowId?: string
+  hideTrigger?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [selectedDraftId, setSelectedDraftId] = useState<string>('')
@@ -66,14 +71,50 @@ export function SendFlowDialog(props: {
     return (props.flows || []).find((f) => f.id === selectedDraftId) || null
   }, [props.flows, selectedDraftId])
 
+  const isOpen = props.open ?? open
+  const setOpenState = props.onOpenChange ?? setOpen
+
+  useEffect(() => {
+    if (!isOpen) return
+    let isMounted = true
+    settingsService
+      .getTestContact()
+      .then((contact) => {
+        if (!isMounted || !contact?.phone || to.trim()) return
+        setTo(contact.phone)
+      })
+      .catch(() => null)
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen, to])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (flowToken.trim()) return
+    if (!flowId.trim()) return
+    const nonce = Math.random().toString(36).slice(2, 8)
+    setFlowToken(`smartzap:${flowId.trim()}:${Date.now()}:${nonce}`)
+  }, [isOpen, flowId, flowToken])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (!props.prefillFlowId) return
+    setFlowId(props.prefillFlowId)
+    const found = (props.flows || []).find((flow) => String(flow.meta_flow_id || '') === String(props.prefillFlowId))
+    if (found) setSelectedDraftId(found.id)
+  }, [isOpen, props.prefillFlowId, props.flows])
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="secondary">
-          <Send className="h-4 w-4" />
-          {props.triggerLabel || 'Enviar Flow'}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={setOpenState}>
+      {!props.hideTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="secondary">
+            <Send className="h-4 w-4" />
+            {props.triggerLabel || 'Enviar Flow'}
+          </Button>
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
@@ -115,7 +156,7 @@ export function SendFlowDialog(props: {
               <SelectContent>
                 {flowsWithMetaId.length === 0 ? (
                   <SelectItem value="__none__" disabled>
-                    Nenhum rascunho com Meta Flow ID
+                    Nenhum rascunho com Flow ID da Meta
                   </SelectItem>
                 ) : (
                   flowsWithMetaId.map((f) => (
@@ -146,7 +187,7 @@ export function SendFlowDialog(props: {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="send_flow_id">Meta Flow ID (flowId)</Label>
+              <Label htmlFor="send_flow_id">Flow ID da Meta (flowId)</Label>
               <Input
                 id="send_flow_id"
                 value={flowId}
@@ -206,7 +247,7 @@ export function SendFlowDialog(props: {
                   flowMessageVersion: '3',
                 })
                 toast.success('Flow enviado')
-                setOpen(false)
+                setOpenState(false)
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : 'Falha ao enviar Flow')
               } finally {

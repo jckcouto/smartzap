@@ -8,14 +8,14 @@ const POLLING_INTERVAL = 30000;
 export const useDashboardController = (initialData?: { stats: any, recentCampaigns: any[] }) => {
   // Stats with Realtime updates - subscribes to campaigns table for live metrics
   const statsQuery = useRealtimeQuery({
-    queryKey: ['dashboardStats'],
+    queryKey: ['dashboardStats', 'v2'],
     queryFn: dashboardService.getStats,
     initialData: initialData?.stats,
     placeholderData: (previous) => previous,
     refetchInterval: POLLING_INTERVAL,
-    staleTime: 15000,
+    staleTime: 0,
     gcTime: 60000,
-    refetchOnMount: false,
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     // Realtime configuration
     table: 'campaigns',

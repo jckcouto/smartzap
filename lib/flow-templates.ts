@@ -26,6 +26,242 @@ export type FlowTemplate = {
 
 export const FLOW_TEMPLATES: FlowTemplate[] = [
   {
+    key: 'feedback_v1',
+    name: 'Feedback simples (sem endpoint)',
+    description: 'Avaliação rápida com escolha única e comentário opcional.',
+    flowJson: {
+      version: '7.3',
+      screens: [
+        {
+          id: 'FEEDBACK',
+          title: 'Feedback',
+          terminal: true,
+          layout: {
+            type: 'SingleColumnLayout',
+            children: [
+              {
+                type: 'BasicText',
+                text: 'Você recomendaria a gente para um amigo?',
+              },
+              {
+                type: 'RadioButtonsGroup',
+                name: 'recommend',
+                label: 'Escolha uma opção',
+                required: true,
+                'data-source': [
+                  { id: 'yes', title: 'Sim' },
+                  { id: 'no', title: 'Não' },
+                ],
+              },
+              {
+                type: 'TextArea',
+                name: 'comment',
+                label: 'Como podemos melhorar? (opcional)',
+                required: false,
+              },
+              {
+                type: 'Footer',
+                label: 'Enviar',
+                'on-click-action': { name: 'complete' },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    defaultMapping: {
+      version: 1,
+      customFields: {
+        feedback_recommend: 'recommend',
+        feedback_comment: 'comment',
+      },
+    },
+  },
+  {
+    key: 'lead_interest_v1',
+    name: 'Interesse de compra (sem endpoint)',
+    description: 'Coleta nome, telefone e interesse principal.',
+    flowJson: {
+      version: '7.3',
+      screens: [
+        {
+          id: 'INTERESSE',
+          title: 'Interesse',
+          terminal: true,
+          layout: {
+            type: 'SingleColumnLayout',
+            children: [
+              {
+                type: 'BasicText',
+                text: 'Conte pra gente o que você procura.',
+              },
+              {
+                type: 'TextInput',
+                name: 'full_name',
+                label: 'Nome',
+                required: true,
+              },
+              {
+                type: 'TextInput',
+                name: 'phone',
+                label: 'Telefone',
+                required: true,
+                'input-type': 'phone',
+              },
+              {
+                type: 'Dropdown',
+                name: 'interest',
+                label: 'Interesse',
+                required: true,
+                'data-source': [
+                  { id: 'produtos', title: 'Produtos' },
+                  { id: 'servicos', title: 'Serviços' },
+                  { id: 'planos', title: 'Planos' },
+                  { id: 'outros', title: 'Outros' },
+                ],
+              },
+              {
+                type: 'Footer',
+                label: 'Continuar',
+                'on-click-action': { name: 'complete' },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    defaultMapping: {
+      version: 1,
+      contact: {
+        nameField: 'full_name',
+      },
+      customFields: {
+        lead_phone: 'phone',
+        lead_interest: 'interest',
+      },
+    },
+  },
+  {
+    key: 'support_request_v1',
+    name: 'Suporte ao cliente (sem endpoint)',
+    description: 'Coleta assunto, prioridade e descrição do problema.',
+    flowJson: {
+      version: '7.3',
+      screens: [
+        {
+          id: 'SUPORTE',
+          title: 'Suporte',
+          terminal: true,
+          layout: {
+            type: 'SingleColumnLayout',
+            children: [
+              {
+                type: 'BasicText',
+                text: 'Vamos entender seu problema para ajudar mais rápido.',
+              },
+              {
+                type: 'Dropdown',
+                name: 'topic',
+                label: 'Assunto',
+                required: true,
+                'data-source': [
+                  { id: 'pagamento', title: 'Pagamento' },
+                  { id: 'entrega', title: 'Entrega' },
+                  { id: 'acesso', title: 'Acesso' },
+                  { id: 'outros', title: 'Outros' },
+                ],
+              },
+              {
+                type: 'RadioButtonsGroup',
+                name: 'priority',
+                label: 'Prioridade',
+                required: true,
+                'data-source': [
+                  { id: 'baixa', title: 'Baixa' },
+                  { id: 'media', title: 'Média' },
+                  { id: 'alta', title: 'Alta' },
+                ],
+              },
+              {
+                type: 'TextArea',
+                name: 'details',
+                label: 'Descreva o problema',
+                required: true,
+              },
+              {
+                type: 'Footer',
+                label: 'Enviar',
+                'on-click-action': { name: 'complete' },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    defaultMapping: {
+      version: 1,
+      customFields: {
+        support_topic: 'topic',
+        support_priority: 'priority',
+        support_details: 'details',
+      },
+    },
+  },
+  {
+    key: 'pesquisa_rapida_v1',
+    name: 'Pesquisa rápida (sem endpoint)',
+    description: 'Perguntas curtas com múltipla escolha e observações.',
+    flowJson: {
+      version: '7.3',
+      screens: [
+        {
+          id: 'PESQUISA',
+          title: 'Pesquisa',
+          terminal: true,
+          layout: {
+            type: 'SingleColumnLayout',
+            children: [
+              {
+                type: 'BasicText',
+                text: 'Ajude a melhorar nossa experiência.',
+              },
+              {
+                type: 'CheckboxGroup',
+                name: 'topics',
+                label: 'Quais temas você gostaria de ver?',
+                required: false,
+                'data-source': [
+                  { id: 'novidades', title: 'Novidades' },
+                  { id: 'descontos', title: 'Descontos' },
+                  { id: 'tutorials', title: 'Tutoriais' },
+                  { id: 'eventos', title: 'Eventos' },
+                ],
+              },
+              {
+                type: 'TextArea',
+                name: 'notes',
+                label: 'Comentários finais (opcional)',
+                required: false,
+              },
+              {
+                type: 'Footer',
+                label: 'Enviar',
+                'on-click-action': { name: 'complete' },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    defaultMapping: {
+      version: 1,
+      customFields: {
+        survey_topics: 'topics',
+        survey_notes: 'notes',
+      },
+    },
+  },
+  {
     key: 'lead_cadastro_v1',
     name: 'Lead / Cadastro (sem endpoint)',
     description: 'Coleta nome, e-mail e interesse. Ideal para capturar lead rápido.',

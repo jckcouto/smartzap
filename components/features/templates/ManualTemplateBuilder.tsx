@@ -3,6 +3,14 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -103,8 +111,8 @@ const allowedHeaderFormats = new Set<HeaderFormat>(['TEXT', 'IMAGE', 'VIDEO', 'D
 function newButtonForType(type: ButtonType): any {
   if (type === 'URL') return { type, text: '', url: 'https://' }
   if (type === 'PHONE_NUMBER') return { type, text: '', phone_number: '' }
-  if (type === 'COPY_CODE') return { type, example: 'CODE123' }
-  if (type === 'OTP') return { type, otp_type: 'COPY_CODE', text: '' }
+  if (type === 'COPY_CODE') return { type, text: 'Copiar código', example: 'CODE123' }
+  if (type === 'OTP') return { type, otp_type: 'COPY_CODE', text: 'Copiar código' }
   if (type === 'FLOW') return { type, text: '', flow_id: '', flow_action: 'navigate' }
   return { type, text: '' }
 }
@@ -405,6 +413,11 @@ export function ManualTemplateBuilder({
   const bodyRef = React.useRef<HTMLTextAreaElement | null>(null)
   const footerRef = React.useRef<HTMLInputElement | null>(null)
   const lastSanitizeRef = React.useRef(0)
+  const [namedVarDialogOpen, setNamedVarDialogOpen] = React.useState(false)
+  const [namedVarTarget, setNamedVarTarget] = React.useState<'header' | 'body'>('body')
+  const [namedVarName, setNamedVarName] = React.useState('')
+  const [namedVarError, setNamedVarError] = React.useState<string | null>(null)
+  const [namedVarExistingText, setNamedVarExistingText] = React.useState('')
 
   React.useEffect(() => {
     setSpec(ensureBaseSpec(initialSpec))
@@ -502,31 +515,8 @@ export function ManualTemplateBuilder({
 
   const variableMode: 'positional' | 'named' = spec.parameter_format || 'positional'
 
-  const addVariable = (target: 'header' | 'body') => {
+  const insertVariable = (target: 'header' | 'body', placeholder: string) => {
     const currentText = target === 'header' ? String(header?.text || '') : String(spec.body?.text || '')
-
-    const placeholder = (() => {
-      if (variableMode === 'positional') {
-        const next = nextPositionalVariable(currentText)
-        return `{{${next}}}`
-      }
-
-      const name = window.prompt('Nome da variável (ex: first_name)')
-      if (!name) return null
-      const trimmed = name.trim()
-      if (!trimmed) return null
-      if (!/^[a-z][a-z0-9_]*$/.test(trimmed)) {
-        window.alert('Nome inválido. Use minúsculas, números e underscore (ex: first_name).')
-        return null
-      }
-      if (currentText.includes(`{{${trimmed}}}`)) {
-        window.alert('Esse nome de variável já foi usado neste campo.')
-        return null
-      }
-      return `{{${trimmed}}}`
-    })()
-
-    if (!placeholder) return
 
     if (target === 'header') {
       if (variableOccurrences(currentText) >= 1) return
@@ -542,7 +532,6 @@ export function ManualTemplateBuilder({
       return
     }
 
-    // body
     const el = bodyRef.current
     const start = el?.selectionStart ?? currentText.length
     const { value, nextPos } = insertAt(currentText, start, placeholder)
@@ -553,6 +542,54 @@ export function ManualTemplateBuilder({
       el.focus()
       el.setSelectionRange(nextPos, nextPos)
     })
+  }
+
+  const openNamedVariableDialog = (target: 'header' | 'body', currentText: string) => {
+    setNamedVarTarget(target)
+    setNamedVarExistingText(currentText)
+    setNamedVarName('')
+    setNamedVarError(null)
+    setNamedVarDialogOpen(true)
+  }
+
+  const confirmNamedVariable = () => {
+    const trimmed = namedVarName.trim()
+    if (!trimmed) {
+      setNamedVarError('Informe um nome para a variável.')
+      return
+    }
+    if (!/^[a-z][a-z0-9_]*$/.test(trimmed)) {
+      setNamedVarError('Use apenas minúsculas, números e underscore (ex: first_name).')
+      return
+    }
+    if (namedVarExistingText.includes(`{{${trimmed}}}`)) {
+      setNamedVarError('Esse nome de variável já foi usado neste campo.')
+      return
+    }
+
+    setNamedVarDialogOpen(false)
+    setNamedVarName('')
+    setNamedVarError(null)
+    insertVariable(namedVarTarget, `{{${trimmed}}}`)
+  }
+
+  const addVariable = (target: 'header' | 'body') => {
+    const currentText = target === 'header' ? String(header?.text || '') : String(spec.body?.text || '')
+
+    const placeholder = (() => {
+      if (variableMode === 'positional') {
+        const next = nextPositionalVariable(currentText)
+        return `{{${next}}}`
+      }
+
+      if (target === 'header' && variableOccurrences(currentText) >= 1) return null
+      openNamedVariableDialog(target, currentText)
+      return null
+    })()
+
+    if (!placeholder) return
+
+    insertVariable(target, placeholder)
   }
 
   const applyBodyFormat = (kind: 'bold' | 'italic' | 'strike' | 'code') => {
@@ -645,6 +682,25 @@ export function ManualTemplateBuilder({
   if (invalidButtonTypes.length) buttonErrors.push(`Botões não permitidos: ${invalidButtonTypes.join(', ')}.`)
   if (ltoCopyCodeMissing) buttonErrors.push('Limited Time Offer exige botão COPY_CODE com exemplo.')
   if (ltoCopyCodeTooLong) buttonErrors.push('Limited Time Offer: código do COPY_CODE deve ter até 15 caracteres.')
+  const requiresButtonText = new Set<ButtonType>([
+    'QUICK_REPLY',
+    'URL',
+    'PHONE_NUMBER',
+    'COPY_CODE',
+    'FLOW',
+    'VOICE_CALL',
+    'CATALOG',
+    'MPM',
+    'EXTENSION',
+    'ORDER_DETAILS',
+    'POSTBACK',
+    'REMINDER',
+    'SEND_LOCATION',
+    'SPM',
+    'OTP',
+  ])
+  const missingButtonText = buttons.some((b) => requiresButtonText.has(b?.type) && !String(b?.text || '').trim())
+  if (missingButtonText) buttonErrors.push('Preencha o texto dos botões.')
 
   const carouselErrors = validateCarouselSpec(spec.carousel)
   const limitedTimeOfferTextTooLong = Boolean(spec.limited_time_offer) && String(spec.limited_time_offer?.text || '').length > 16
@@ -1188,7 +1244,7 @@ export function ManualTemplateBuilder({
         )}
 
         {step === 3 && (
-          <div className={`${panelClass} ${panelPadding} space-y-4 min-h-140`}>
+          <div className={`${panelClass} ${panelPadding} space-y-4`}>
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-sm font-semibold text-white">Botões <span className="text-xs text-gray-500 font-normal">• Opcional</span></div>
@@ -1348,16 +1404,17 @@ export function ManualTemplateBuilder({
                   <div className="space-y-3">
                     <div className="text-xs text-gray-400">Resposta rápida <span className="text-gray-500">• Opcional</span></div>
 
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="space-y-3">
                       <div className="grid grid-cols-[18px_minmax(0,1fr)_40px] gap-3 items-center">
                         <div />
                         <div className="text-xs font-medium text-gray-300">Texto do botão</div>
                         <div />
                       </div>
 
-                      <div className="mt-3 space-y-3">
+                      <div className="space-y-3">
                         {rows.map(({ b, idx }) => {
                           const text = String(b?.text || '')
+                          const hasTextError = requiresButtonText.has(b?.type) && !text.trim()
                           return (
                             <div key={idx} className="grid grid-cols-[18px_minmax(0,1fr)_40px] gap-3 items-center">
                               <GripVertical className="w-4 h-4 text-gray-500" />
@@ -1377,6 +1434,9 @@ export function ManualTemplateBuilder({
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
                                   {countChars(text)}/{maxButtonText}
                                 </div>
+                                {hasTextError && (
+                                  <div className="mt-1 text-xs text-amber-300">Informe o texto do botão.</div>
+                                )}
                               </div>
 
                               <button
@@ -1408,10 +1468,14 @@ export function ManualTemplateBuilder({
                   <div className="space-y-3">
                     <div className="text-xs text-gray-400">Chamada para ação <span className="text-gray-500">• Opcional</span></div>
 
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-4">
-                      {rows.map(({ b, idx }) => {
+                    <div className="space-y-4">
+                      {rows.map(({ b, idx }, rowIndex) => {
                         const type = b?.type as ButtonType
                         const buttonText = String(b?.text || '')
+                        const hasTextError = requiresButtonText.has(type) && !buttonText.trim()
+                        const rowClassName = rowIndex === 0
+                          ? 'relative pb-4 pr-12'
+                          : 'relative border-t border-white/10 pt-4 pb-4 pr-12'
 
                         const headerRow = (
                           <div className="grid grid-cols-[18px_minmax(0,1fr)] gap-4">
@@ -1449,8 +1513,14 @@ export function ManualTemplateBuilder({
                                       }
                                       if (t === 'URL') next[idx].url = 'https://'
                                       if (t === 'PHONE_NUMBER') next[idx].phone_number = ''
-                                      if (t === 'COPY_CODE') next[idx].example = 'CODE123'
-                                      if (t === 'OTP') next[idx].otp_type = 'COPY_CODE'
+                                      if (t === 'COPY_CODE') {
+                                        next[idx].text = 'Copiar código'
+                                        next[idx].example = 'CODE123'
+                                      }
+                                      if (t === 'OTP') {
+                                        next[idx].text = 'Copiar código'
+                                        next[idx].otp_type = 'COPY_CODE'
+                                      }
                                       if (t === 'FLOW') next[idx].flow_id = ''
                                       updateButtons(next)
                                     }}
@@ -1494,6 +1564,9 @@ export function ManualTemplateBuilder({
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
                                       {countChars(buttonText)}/{maxButtonText}
                                     </div>
+                                    {hasTextError && (
+                                      <div className="mt-1 text-xs text-amber-300">Informe o texto do botão.</div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1737,7 +1810,7 @@ export function ManualTemplateBuilder({
                         })()
 
                         return (
-                          <div key={idx} className="relative rounded-xl border border-white/10 bg-zinc-950/20 p-5">
+                          <div key={idx} className={rowClassName}>
                             <button
                               type="button"
                               onClick={() => updateButtons(buttons.filter((_, i) => i !== idx))}
@@ -2069,6 +2142,42 @@ export function ManualTemplateBuilder({
           </details>
         </div>
       </div>
+      <Dialog open={namedVarDialogOpen} onOpenChange={setNamedVarDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Variavel nomeada</DialogTitle>
+            <DialogDescription>Use apenas minúsculas, números e underscore.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-300">Nome da variavel</label>
+            <Input
+              value={namedVarName}
+              onChange={(e) => {
+                setNamedVarName(e.target.value)
+                if (namedVarError) setNamedVarError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  confirmNamedVariable()
+                }
+              }}
+              placeholder="ex: first_name"
+              className="bg-zinc-950/40 border-white/10 text-white"
+              autoFocus
+            />
+            {namedVarError ? <p className="text-xs text-amber-300">{namedVarError}</p> : null}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="ghost" onClick={() => setNamedVarDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={confirmNamedVariable}>
+              Adicionar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

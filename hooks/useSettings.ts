@@ -35,6 +35,10 @@ interface WebhookSubscriptionStatus {
   details?: unknown;
 }
 
+interface WorkflowBuilderDefault {
+  defaultWorkflowId: string;
+}
+
 // System health status
 interface HealthStatus {
   overall: 'healthy' | 'degraded' | 'unhealthy';
@@ -200,6 +204,12 @@ export const useSettingsController = () => {
     staleTime: 60 * 1000,
   });
 
+  const workflowBuilderDefaultQuery = useQuery({
+    queryKey: ['workflowBuilderDefault'],
+    queryFn: settingsService.getWorkflowBuilderDefault,
+    staleTime: 60 * 1000,
+  });
+
   // WhatsApp Turbo (Adaptive Throttle)
   const whatsappThrottleQuery = useQuery({
     queryKey: ['whatsappThrottle'],
@@ -216,6 +226,18 @@ export const useSettingsController = () => {
     enabled: !!settingsQuery.data?.isConnected,
     staleTime: 30 * 1000,
     retry: false,
+  })
+
+  const saveWorkflowBuilderDefaultMutation = useMutation({
+    mutationFn: (defaultWorkflowId: string) =>
+      settingsService.saveWorkflowBuilderDefault(defaultWorkflowId),
+    onSuccess: async () => {
+      toast.success('Workflow padrão salvo')
+      await queryClient.invalidateQueries({ queryKey: ['workflowBuilderDefault'] })
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Falha ao salvar workflow padrão')
+    },
   })
 
   // Available domains query (auto-detect from Vercel)
@@ -732,5 +754,10 @@ export const useSettingsController = () => {
     autoSuppressionLoading: autoSuppressionQuery.isLoading,
     saveAutoSuppression: saveAutoSuppressionMutation.mutateAsync,
     isSavingAutoSuppression: saveAutoSuppressionMutation.isPending,
+
+    // Workflow Builder default
+    workflowBuilderDefault: workflowBuilderDefaultQuery.data || null,
+    workflowBuilderDefaultLoading: workflowBuilderDefaultQuery.isLoading,
+    saveWorkflowBuilderDefault: saveWorkflowBuilderDefaultMutation.mutateAsync,
   };
 };  

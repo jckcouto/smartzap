@@ -150,7 +150,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         return NextResponse.json(
           {
             error:
-              'Esse Flow já está PUBLISHED na Meta e não pode ser alterado. Crie um novo Flow (clone) ou remova o Meta Flow ID para publicar como novo.',
+              'Esse Flow já está PUBLISHED na Meta e não pode ser alterado. Crie um novo Flow (clone) ou remova o Flow ID da Meta para publicar como novo.',
             metaFlowId,
             metaStatus,
           },

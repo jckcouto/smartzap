@@ -134,7 +134,7 @@ export function FlowSubmissionsView(props: {
               </div>
 
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Filtrar por Flow ID</label>
+                <label className="block text-xs text-gray-400 mb-1">Filtrar por Flow ID da Meta</label>
                 <Input
                   value={props.flowIdFilter}
                   onChange={(e) => props.onFlowIdFilterChange(e.target.value)}

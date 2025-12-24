@@ -17,12 +17,20 @@ export async function GET() {
     let totalFailed = 0
     let activeCampaigns = 0
 
+      const activeStatuses = new Set([
+        'enviando',
+        'agendado',
+        'sending',
+        'scheduled',
+      ])
+
       ; (data || []).forEach(row => {
         totalSent += row.sent || 0
         totalDelivered += row.delivered || 0
         totalRead += row.read || 0
         totalFailed += row.failed || 0
-        if (row.status === 'Enviando' || row.status === 'Agendado') {
+        const status = String(row.status || '').trim().toLowerCase()
+        if (activeStatuses.has(status)) {
           activeCampaigns++
         }
       })

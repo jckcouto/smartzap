@@ -15,9 +15,9 @@ export default function FlowBuilderHomePage() {
     <Page>
       <PageHeader>
         <div className="space-y-1">
-          <PageTitle>Flow Builder</PageTitle>
+          <PageTitle>MiniApp Builder</PageTitle>
           <PageDescription>
-            Crie flows a partir de templates e edite o Flow JSON (Meta). O canvas é opcional e ajuda a organizar a lógica.
+            Crie MiniApps a partir de modelos e edite o JSON da Meta.
           </PageDescription>
         </div>
         <PageActions>

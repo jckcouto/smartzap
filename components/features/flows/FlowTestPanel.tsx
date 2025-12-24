@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { FlowRow } from '@/services/flowsService'
+import { settingsService } from '@/services'
 
 type SendFlowPayload = {
   to: string
@@ -70,6 +71,27 @@ export function FlowTestPanel({
     if (found) setSelectedDraftId(found.id)
   }, [prefillFlowId, flows])
 
+  useEffect(() => {
+    let isMounted = true
+    settingsService
+      .getTestContact()
+      .then((contact) => {
+        if (!isMounted || !contact?.phone || to.trim()) return
+        setTo(contact.phone)
+      })
+      .catch(() => null)
+    return () => {
+      isMounted = false
+    }
+  }, [to])
+
+  useEffect(() => {
+    if (flowToken.trim()) return
+    if (!flowId.trim()) return
+    const nonce = Math.random().toString(36).slice(2, 8)
+    setFlowToken(`smartzap:${flowId.trim()}:${Date.now()}:${nonce}`)
+  }, [flowId, flowToken])
+
   return (
     <div id="flow-test-panel" className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 shadow-[0_12px_30px_rgba(0,0,0,0.35)] space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -102,12 +124,12 @@ export function FlowTestPanel({
           }}
         >
           <SelectTrigger className="w-full bg-zinc-950/40 border-white/10 text-white">
-            <SelectValue placeholder={isLoadingFlows ? 'Carregando…' : 'Escolha um flow do Builder'} />
+                  <SelectValue placeholder={isLoadingFlows ? 'Carregando…' : 'Escolha um flow do Builder'} />
           </SelectTrigger>
           <SelectContent>
             {flowsWithMetaId.length === 0 ? (
               <SelectItem value="__none__" disabled>
-                Nenhum flow com Meta Flow ID
+                    Nenhum flow com Flow ID da Meta
               </SelectItem>
             ) : (
               flowsWithMetaId.map((f) => (
@@ -134,7 +156,7 @@ export function FlowTestPanel({
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-medium text-gray-300">Meta Flow ID</label>
+          <label className="text-xs font-medium text-gray-300">Flow ID da Meta</label>
           <Input
             value={flowId}
             onChange={(e) => setFlowId(e.target.value)}

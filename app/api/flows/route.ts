@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       version: 1,
       viewport: { x: 0, y: 0, zoom: 1 },
       // Form spec (para o modo "Formulário" do builder). Mantido dentro de `spec`
-      // para evitar migrations e continuar compatível com o canvas (nodes/edges).
+      // para evitar migrations e manter compatibilidade com o spec atual.
       form: {
         version: 1,
         screenId: 'FORM',

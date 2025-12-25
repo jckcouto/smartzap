@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic' // Prevent caching of verification requests
-import { supabase } from '@/lib/supabase'
+import { getSupabaseAdmin, supabase } from '@/lib/supabase'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { upsertPhoneSuppression } from '@/lib/phone-suppressions'
 import { maybeAutoSuppressByFailure } from '@/lib/auto-suppression'
@@ -261,6 +261,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   if (!body) {
     return NextResponse.json({ status: 'ignored', error: 'Body inválido' }, { status: 400 })
+  }
+  const supabaseAdmin = getSupabaseAdmin()
+  if (!supabaseAdmin) {
+    return NextResponse.json({ status: 'error', error: 'Supabase not configured' }, { status: 500 })
   }
 
   if (body.object !== 'whatsapp_business_account') {
@@ -615,8 +619,8 @@ export async function POST(request: NextRequest) {
 
           if (targetWorkflowId && text && from) {
             try {
-              const companyId = await getCompanyId(supabase)
-              await ensureWorkflowRecord(supabase, targetWorkflowId, companyId)
+              const companyId = await getCompanyId(supabaseAdmin)
+              await ensureWorkflowRecord(supabaseAdmin, targetWorkflowId, companyId)
 
               const origin = request.nextUrl.origin
               await fetch(`${origin}/api/builder/workflow/${targetWorkflowId}/execute`, {

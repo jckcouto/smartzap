@@ -10,6 +10,7 @@ import { Button } from "@/components/builder/ui/button";
 import { CodeEditor } from "@/components/builder/ui/code-editor";
 import { IntegrationIcon } from "@/components/builder/ui/integration-icon";
 import { IntegrationSelector } from "@/components/builder/ui/integration-selector";
+import { Input } from "@/components/builder/ui/input";
 import { Label } from "@/components/builder/ui/label";
 import {
   Select,

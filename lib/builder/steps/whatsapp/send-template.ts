@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { TemplateParameterFormat } from "@/lib/whatsapp/types";
 import { buildMetaTemplatePayload } from "@/lib/whatsapp/template-contract";
 import { withStepLogging, type StepInput } from "../step-handler";
 import {
@@ -22,7 +21,7 @@ export type SendTemplateInput = StepInput & {
   toSource?: string;
   templateName?: string;
   language?: string;
-  parameterFormat?: TemplateParameterFormat | string;
+  parameterFormat?: string;
   bodyParams?: string;
   headerParams?: string;
   buttonParams?: string;

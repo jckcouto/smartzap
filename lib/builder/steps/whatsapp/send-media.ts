@@ -50,6 +50,8 @@ export async function sendMediaStep(
     const mediaId = input.mediaId ? String(input.mediaId) : undefined;
     const caption = input.caption ? String(input.caption) : undefined;
     const filename = input.filename ? String(input.filename) : undefined;
+    const resolvedFilename =
+      mediaType === "document" ? filename || "document" : filename;
 
     if (!mediaUrl && !mediaId) {
       return { success: false, error: "Media URL or Media ID is required" };
@@ -78,7 +80,7 @@ export async function sendMediaStep(
           mediaUrl,
           mediaId,
           caption,
-          filename,
+          filename: resolvedFilename || "document",
         });
         break;
       case "sticker":

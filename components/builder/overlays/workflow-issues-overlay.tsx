@@ -120,16 +120,20 @@ export function WorkflowIssuesOverlay({
   return (
     <Overlay
       actions={[
-        { label: "Run Anyway", variant: "outline", onClick: handleRunAnyway },
-        { label: "Cancel", onClick: closeAll },
+        {
+          label: "Executar mesmo assim",
+          variant: "outline",
+          onClick: handleRunAnyway,
+        },
+        { label: "Cancelar", onClick: closeAll },
       ]}
       overlayId={overlayId}
-      title={`Workflow Issues (${totalIssues})`}
+      title={`Problemas do fluxo (${totalIssues})`}
     >
       <div className="flex items-center gap-2 text-orange-500">
         <AlertTriangle className="size-5" />
         <p className="text-muted-foreground text-sm">
-          This workflow has issues that may cause it to fail.
+          Este fluxo tem problemas que podem causar falhas.
         </p>
       </div>
 
@@ -138,7 +142,7 @@ export function WorkflowIssuesOverlay({
         {missingIntegrations.length > 0 && (
           <div className="space-y-1">
             <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-              Missing Connections
+              Conexões pendentes
             </h4>
             {missingIntegrations.map((missing) => (
               <div
@@ -156,7 +160,7 @@ export function WorkflowIssuesOverlay({
                   <span className="text-muted-foreground">
                     {" — "}
                     {missing.nodeNames.length > 3
-                      ? `${missing.nodeNames.slice(0, 3).join(", ")} +${missing.nodeNames.length - 3} more`
+                      ? `${missing.nodeNames.slice(0, 3).join(", ")} +${missing.nodeNames.length - 3} a mais`
                       : missing.nodeNames.join(", ")}
                   </span>
                 </p>
@@ -166,7 +170,7 @@ export function WorkflowIssuesOverlay({
                   size="sm"
                   variant="outline"
                 >
-                  Add
+                  Adicionar
                 </Button>
               </div>
             ))}
@@ -177,7 +181,7 @@ export function WorkflowIssuesOverlay({
         {brokenReferences.length > 0 && (
           <div className="space-y-2">
             <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-              Broken References
+              Referencias quebradas
             </h4>
             {brokenReferences.map((broken) => (
               <div key={broken.nodeId}>
@@ -190,7 +194,7 @@ export function WorkflowIssuesOverlay({
                     >
                       <p className="min-w-0 flex-1 text-muted-foreground text-sm">
                         <span className="font-mono">{ref.displayText}</span>
-                        {" in "}
+                        {" em "}
                         {ref.fieldLabel}
                       </p>
                       <Button
@@ -201,7 +205,7 @@ export function WorkflowIssuesOverlay({
                         size="sm"
                         variant="outline"
                       >
-                        Fix
+                        Corrigir
                       </Button>
                     </div>
                   ))}
@@ -215,7 +219,7 @@ export function WorkflowIssuesOverlay({
         {missingRequiredFields.length > 0 && (
           <div className="space-y-2">
             <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-              Missing Required Fields
+              Campos obrigatórios
             </h4>
             {missingRequiredFields.map((node) => (
               <div key={node.nodeId}>
@@ -237,7 +241,7 @@ export function WorkflowIssuesOverlay({
                         size="sm"
                         variant="outline"
                       >
-                        Fix
+                        Corrigir
                       </Button>
                     </div>
                   ))}

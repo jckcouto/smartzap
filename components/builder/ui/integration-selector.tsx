@@ -27,7 +27,7 @@ import {
   integrationsVersionAtom,
 } from "@/lib/builder/integrations-store";
 import type { IntegrationType } from "@/lib/builder/types/integration";
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 import { getIntegration } from "@/lib/builder/plugins";
 
 const WHATSAPP_GLOBAL_INTEGRATION_ID = "whatsapp-global";
@@ -294,7 +294,7 @@ export function IntegrationSelector({
         >
           <AlertTriangle className="size-4" />
           <span className="flex-1 text-left">
-            Add {integrationLabel} connection
+            Adicionar conexão {integrationLabel}
           </span>
           <Plus className="size-4" />
         </Button>
@@ -305,7 +305,7 @@ export function IntegrationSelector({
   // Single integration - show as outlined field (not radio-style)
   if (integrations.length === 1) {
     const integration = integrations[0];
-    const displayName = integration.name || `${integrationLabel} API Key`;
+    const displayName = integration.name || `${integrationLabel} - chave de API`;
     const canEdit = integration.id !== WHATSAPP_GLOBAL_INTEGRATION_ID;
 
     return (
@@ -341,7 +341,8 @@ export function IntegrationSelector({
         {/* Show managed integrations first */}
         {managedIntegrations.map((integration) => {
           const isSelected = value === integration.id;
-          const displayName = integration.name || `${integrationLabel} API Key`;
+          const displayName =
+            integration.name || `${integrationLabel} - chave de API`;
           const canEdit = integration.id !== WHATSAPP_GLOBAL_INTEGRATION_ID;
           return (
             <div
@@ -387,7 +388,7 @@ export function IntegrationSelector({
         {manualIntegrations.map((integration) => {
           const isSelected = value === integration.id;
           const displayName =
-            integration.name || `${integrationLabel} API Key`;
+            integration.name || `${integrationLabel} - chave de API`;
           const canEdit = integration.id !== WHATSAPP_GLOBAL_INTEGRATION_ID;
           return (
             <div
@@ -437,7 +438,7 @@ export function IntegrationSelector({
             type="button"
           >
             <Settings className="size-4 shrink-0" />
-            <span>Manage all connections</span>
+            <span>Gerenciar todas as conexões</span>
           </button>
         )}
       </div>

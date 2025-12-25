@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { contactDb } from '@/lib/supabase-db'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 import { ImportContactsSchema, validateBody, formatZodErrors } from '@/lib/api-validation'
 import { ContactStatus } from '@/types'
 
@@ -9,6 +10,9 @@ import { ContactStatus } from '@/types'
  */
 export async function POST(request: Request) {
   try {
+    const auth = await requireSessionOrApiKey(request as NextRequest)
+    if (auth) return auth
+
     const body = await request.json()
 
     // Validate input

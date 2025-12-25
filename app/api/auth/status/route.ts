@@ -17,15 +17,20 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    console.log('🔍 [AUTH-STATUS] === START ===')
+    const isProd = process.env.NODE_ENV === 'production'
+    const log = (...args: any[]) => {
+      if (!isProd) console.log(...args)
+    }
+
+    log('🔍 [AUTH-STATUS] === START ===')
     // Check if MASTER_PASSWORD is configured
-    console.log('🔍 [AUTH-STATUS] MASTER_PASSWORD exists:', !!process.env.MASTER_PASSWORD)
-    console.log('🔍 [AUTH-STATUS] VERCEL_TOKEN exists:', !!process.env.VERCEL_TOKEN)
-    console.log('🔍 [AUTH-STATUS] SETUP_COMPLETE exists:', !!process.env.SETUP_COMPLETE)
+    log('🔍 [AUTH-STATUS] MASTER_PASSWORD exists:', !!process.env.MASTER_PASSWORD)
+    log('🔍 [AUTH-STATUS] VERCEL_TOKEN exists:', !!process.env.VERCEL_TOKEN)
+    log('🔍 [AUTH-STATUS] SETUP_COMPLETE exists:', !!process.env.SETUP_COMPLETE)
     const isConfigured = !!process.env.MASTER_PASSWORD
 
     if (!isConfigured) {
-      console.log('🔍 [AUTH-STATUS] Not configured, returning early')
+      log('🔍 [AUTH-STATUS] Not configured, returning early')
       return NextResponse.json({
         isConfigured: false,
         debug_master_password_exists: !!process.env.MASTER_PASSWORD,
@@ -36,9 +41,9 @@ export async function GET() {
       })
     }
 
-    console.log('🔍 [AUTH-STATUS] Calling getUserAuthStatus...')
+    log('🔍 [AUTH-STATUS] Calling getUserAuthStatus...')
     const status = await getUserAuthStatus()
-    console.log('🔍 [AUTH-STATUS] getUserAuthStatus result:', JSON.stringify(status, null, 2))
+    log('🔍 [AUTH-STATUS] getUserAuthStatus result:', JSON.stringify(status, null, 2))
 
     const response = {
       isConfigured: true,
@@ -47,7 +52,7 @@ export async function GET() {
       company: status.company
     }
 
-    console.log('🔍 [AUTH-STATUS] Final response:', JSON.stringify(response, null, 2))
+    log('🔍 [AUTH-STATUS] Final response:', JSON.stringify(response, null, 2))
     return NextResponse.json(response)
   } catch (error) {
     console.error('Auth status error:', error)

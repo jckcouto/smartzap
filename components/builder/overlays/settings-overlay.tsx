@@ -49,11 +49,11 @@ export function SettingsOverlay({ overlayId }: SettingsOverlayProps) {
       setSaving(true);
       await api.user.update({ name: accountName, email: accountEmail });
       await loadAccount();
-      toast.success("Settings saved");
+      toast.success("Configurações salvas");
       closeAll();
     } catch (error) {
       console.error("Failed to save account:", error);
-      toast.error("Failed to save settings");
+      toast.error("Falha ao salvar configurações");
     } finally {
       setSaving(false);
     }
@@ -62,19 +62,19 @@ export function SettingsOverlay({ overlayId }: SettingsOverlayProps) {
   return (
     <Overlay
       actions={[
-        { label: "Cancel", variant: "outline", onClick: closeAll },
+        { label: "Cancelar", variant: "outline", onClick: closeAll },
         {
-          label: "Save",
+          label: "Salvar",
           onClick: saveAccount,
           loading: saving,
           disabled: loading,
         },
       ]}
       overlayId={overlayId}
-      title="Settings"
+      title="Configurações"
     >
       <p className="-mt-2 mb-4 text-muted-foreground text-sm">
-        Update your personal information
+        Atualize seus dados pessoais
       </p>
 
       {loading ? (

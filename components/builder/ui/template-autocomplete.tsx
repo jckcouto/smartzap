@@ -4,7 +4,7 @@ import { useAtom } from "jotai";
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 import { edgesAtom, nodesAtom, type WorkflowNode } from "@/lib/builder/workflow-store";
 import { findActionById } from "@/lib/builder/plugins";
 
@@ -152,7 +152,7 @@ const getCommonFields = (node: WorkflowNode) => {
         // If schema parsing fails, fall through to default fields
       }
     }
-    return [{ field: "text", description: "Generated text" }];
+    return [{ field: "text", description: "Texto gerado" }];
   }
 
   // Check if the plugin defines output fields
@@ -180,13 +180,13 @@ const getCommonFields = (node: WorkflowNode) => {
     }
 
     return [
-      { field: "triggered", description: "Trigger status" },
-      { field: "timestamp", description: "Trigger timestamp" },
-      { field: "input", description: "Input data" },
+      { field: "triggered", description: "Status do gatilho" },
+      { field: "timestamp", description: "Timestamp do gatilho" },
+      { field: "input", description: "Dados de entrada" },
     ];
   }
 
-  return [{ field: "data", description: "Output data" }];
+  return [{ field: "data", description: "Dados de saida" }];
 };
 
 export function TemplateAutocomplete({
@@ -393,4 +393,3 @@ export function TemplateAutocomplete({
   // Use portal to render at document root to avoid clipping issues
   return createPortal(menuContent, document.body);
 }
-

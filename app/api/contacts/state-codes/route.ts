@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getBrazilUfFromPhone } from '@/lib/br-geo'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -21,8 +22,11 @@ const resolveState = (phone: string): string | null => {
  * GET /api/contacts/state-codes
  * Lista UFs existentes nos contatos BR.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSessionOrApiKey(request)
+    if (auth) return auth
+
     const { data, error } = await supabase.from('contacts').select('phone')
     if (error) throw error
 

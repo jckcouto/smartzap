@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { contactDb } from '@/lib/supabase-db'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 import { BulkSetContactCustomFieldSchema, formatZodErrors, validateBody } from '@/lib/api-validation'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,9 @@ export const revalidate = 0
  */
 export async function POST(request: Request) {
   try {
+    const auth = await requireSessionOrApiKey(request as NextRequest)
+    if (auth) return auth
+
     const body = await request.json().catch(() => ({}))
 
     const validation = validateBody(BulkSetContactCustomFieldSchema, body)

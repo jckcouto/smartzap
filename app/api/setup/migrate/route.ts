@@ -5,6 +5,11 @@ import path from 'path'
 
 export const runtime = 'nodejs' // Force Node.js runtime to access filesystem
 
+const isProd = process.env.NODE_ENV === 'production'
+const log = (...args: any[]) => {
+    if (!isProd) console.log(...args)
+}
+
 async function resolveMigrationsDir(): Promise<{ dir: string; files: string[] }> {
     // Fonte única de verdade: supabase/migrations
     // O diretório `lib/migrations` pode existir apenas como legado/mirror; não é caminho oficial.
@@ -88,6 +93,15 @@ export async function POST(request: NextRequest) {
     let fullSql = ''
 
     try {
+        // Security: this endpoint accepts a database connection string and can run destructive actions.
+        // Only allow during initial installation; after setup is complete, it must be blocked.
+        if (process.env.SETUP_COMPLETE === 'true') {
+            return NextResponse.json(
+                { error: 'Setup já concluído. Endpoint de migração está desativado.' },
+                { status: 403 }
+            )
+        }
+
         const { connectionString, action } = await request.json()
 
         if (!connectionString) {
@@ -107,7 +121,7 @@ export async function POST(request: NextRequest) {
 
         // Handle Nuclear Reset if requested
         if (action === 'reset') {
-            console.log('☢️ NUCLEAR RESET TRIGGERED ☢️')
+            log('☢️ NUCLEAR RESET TRIGGERED ☢️')
             await client.query(`
                 DROP SCHEMA public CASCADE;
                 CREATE SCHEMA public;

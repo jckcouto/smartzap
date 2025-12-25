@@ -26,44 +26,42 @@ export function ExportWorkflowOverlay({
   return (
     <Overlay
       actions={[
-        { label: "Cancel", variant: "outline", onClick: closeAll },
+        { label: "Cancelar", variant: "outline", onClick: closeAll },
         {
-          label: isDownloading ? "Exporting..." : "Export Project",
+          label: isDownloading ? "Exportando..." : "Exportar projeto",
           onClick: handleExport,
           loading: isDownloading,
         },
       ]}
       overlayId={overlayId}
-      title="Export Workflow as Code"
+      title="Exportar fluxo como codigo"
     >
       <div className="flex items-center gap-2 text-muted-foreground">
         <Download className="size-5" />
         <p className="text-sm">
-          Export your workflow as a standalone Next.js project that you can run
-          independently.
+          Exporte seu fluxo como um projeto Next.js independente.
         </p>
       </div>
 
       <p className="mt-4 text-muted-foreground text-sm">
-        This will generate a complete Next.js project containing your workflow
-        code. Once exported, you can run your workflow outside of the Workflow
-        Builder, deploy it to Vercel, or integrate it into your existing
-        applications.
+        Isso gera um projeto Next.js completo com o codigo do fluxo. Depois de
+        exportar, voce pode executa-lo fora do Builder, publicar na Vercel ou
+        integrar em outras aplicações.
       </p>
 
       <Alert className="mt-4">
         <FlaskConical className="size-4" />
-        <AlertTitle>Experimental Feature</AlertTitle>
+        <AlertTitle>Recurso experimental</AlertTitle>
         <AlertDescription className="block">
-          This feature is experimental and may have limitations. If you
-          encounter any issues, please{" "}
+          Este recurso e experimental e pode ter limitações. Se encontrar
+          problemas,{" "}
           <a
             className="font-medium text-foreground underline underline-offset-4 hover:text-primary"
             href="https://github.com/vercel-labs/workflow-builder-template/issues"
             rel="noopener noreferrer"
             target="_blank"
           >
-            report them on GitHub
+            reporte no GitHub
           </a>
           .
         </AlertDescription>

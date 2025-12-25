@@ -196,14 +196,14 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
             JSON.stringify(workflowData, null, 2)
           );
           throw new Error(
-            `Cannot create workflow: The AI tried to create ${incompleteNodes.length} incomplete node(s). The requested action type may not be supported. Please try a different description using supported actions: Send Email, Send Slack Message, Create Ticket, Database Query, HTTP Request, Generate Text, Generate Image, Scrape, or Search.`
+            `Nao foi possivel criar o fluxo: a IA tentou criar ${incompleteNodes.length} node(s) incompletos. O tipo de ação solicitado pode nao ser suportado. Tente outra descrição usando ações suportadas: Send Email, Send Slack Message, Create Ticket, Database Query, HTTP Request, Generate Text, Generate Image, Scrape ou Search.`
           );
         }
 
         // If no workflowId, create a new workflow
         if (!workflowId) {
           const newWorkflow = await api.workflow.create({
-            name: workflowData.name || "AI Generated Workflow",
+            name: workflowData.name || "Fluxo gerado por IA",
             description: workflowData.description || "",
             nodes: workflowData.nodes || [],
             edges: finalEdges,
@@ -212,7 +212,7 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
           // State already updated by streaming callback
           setCurrentWorkflowId(newWorkflow.id);
 
-          toast.success("Created workflow");
+          toast.success("Fluxo criado");
 
           // Notify parent component to redirect
           if (onWorkflowCreated) {
@@ -390,4 +390,3 @@ export function AIPrompt({ workflowId, onWorkflowCreated }: AIPromptProps) {
     </>
   );
 }
-

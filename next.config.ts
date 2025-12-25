@@ -1,8 +1,27 @@
 import type { NextConfig } from 'next'
 
+const isProd = process.env.NODE_ENV === 'production'
+
+// Security hardening: baseline headers that reduce attack surface without breaking common app behavior.
+// Note: CSP is intentionally not set here to avoid accidental breakage; if needed, add it iteratively.
+const securityHeaders = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  { key: 'X-DNS-Prefetch-Control', value: 'off' },
+  { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+  ...(isProd
+    ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' }]
+    : []),
+] satisfies Array<{ key: string; value: string }>
+
 const nextConfig: NextConfig = {
   // Next.js 16 uses Turbopack by default
   reactStrictMode: true,
+
+  // Hide framework fingerprinting header
+  poweredByHeader: false,
 
   // Standalone output for Docker
   output: 'standalone',
@@ -26,6 +45,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     // Set the workspace root to this directory
     root: __dirname,
+  },
+
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+    ]
   },
 
   // Image optimization

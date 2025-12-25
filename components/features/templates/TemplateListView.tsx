@@ -311,24 +311,27 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
 
           <button
             onClick={() => setIsBulkModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-black rounded-xl font-semibold hover:bg-emerald-400 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-black rounded-xl font-semibold hover:bg-emerald-400 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 focus-visible:outline-offset-2"
+            aria-label="Gerar templates de utilidade em massa"
           >
-            <Zap size={18} className="text-emerald-900" />
+            <Zap size={18} className="text-emerald-900" aria-hidden="true" />
             Gerar UTILIDADE em Massa
           </button>
           <button
             onClick={() => setIsAiModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950/40 text-gray-200 border border-white/10 rounded-xl font-semibold hover:bg-white/5 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-950/40 text-gray-200 border border-white/10 rounded-xl font-semibold hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 focus-visible:outline-offset-2"
+            aria-label="Criar novo template usando inteligência artificial"
           >
-            <Sparkles size={18} className="text-emerald-300" />
+            <Sparkles size={18} className="text-emerald-300" aria-hidden="true" />
             Criar com IA
           </button>
           <button
             onClick={onSync}
             disabled={isSyncing}
-            className={`flex items-center gap-2 px-4 py-2.5 bg-zinc-950/40 border border-white/10 text-gray-200 rounded-xl font-medium hover:bg-white/5 transition-colors ${isSyncing ? 'opacity-75 cursor-wait' : ''}`}
+            className={`flex items-center gap-2 px-4 py-2.5 bg-zinc-950/40 border border-white/10 text-gray-200 rounded-xl font-medium hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 ${isSyncing ? 'opacity-75 cursor-wait' : ''}`}
+            aria-label={isSyncing ? "Sincronizando templates com WhatsApp" : "Sincronizar templates com WhatsApp"}
           >
-            <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+            <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} aria-hidden="true" />
             {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
           </button>
           </div>
@@ -337,7 +340,7 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
 
       {/* Filters */}
       <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-6 shadow-[0_12px_30px_rgba(0,0,0,0.35)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0" role="group" aria-label="Filtrar por categoria">
           {[
             { value: 'ALL', label: 'Todos' },
             { value: 'MARKETING', label: 'Marketing' },
@@ -347,17 +350,19 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
             <button
               key={cat.value}
               onClick={() => setCategoryFilter(cat.value)}
-              className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-widest transition-colors whitespace-nowrap ${categoryFilter === cat.value
+              className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-widest transition-colors whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 focus-visible:outline-offset-2 ${categoryFilter === cat.value
                 ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
                 : 'border-white/10 bg-zinc-950/40 text-gray-400 hover:text-white'
                 }`}
+              aria-pressed={categoryFilter === cat.value}
+              aria-label={`Filtrar por categoria: ${cat.label}`}
             >
               {cat.label}
             </button>
           ))}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar" role="group" aria-label="Filtrar por status">
           {[
             { value: 'APPROVED', label: 'Aprovados' },
             { value: 'PENDING', label: 'Em análise' },
@@ -368,10 +373,12 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
             <button
               key={s.value}
               onClick={() => setStatusFilter(s.value as any)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${statusFilter === s.value
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 focus-visible:outline-offset-2 ${statusFilter === s.value
                 ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
                 : 'border-white/10 bg-zinc-950/40 text-gray-400 hover:text-white'
                 }`}
+              aria-pressed={statusFilter === s.value}
+              aria-label={`Filtrar por status: ${s.label}`}
             >
               {s.label}
             </button>
@@ -379,14 +386,15 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <div className="flex items-center gap-3 bg-zinc-950/40 border border-white/10 rounded-xl px-4 py-3 w-full md:w-72 transition-all">
-            <Search size={18} className="text-gray-500" />
+          <div className="flex items-center gap-3 bg-zinc-950/40 border border-white/10 rounded-xl px-4 py-3 w-full md:w-72 transition-all focus-within:border-primary-500/50 focus-within:ring-1 focus-within:ring-primary-500/50">
+            <Search size={18} className="text-gray-500" aria-hidden="true" />
             <input
               type="text"
               placeholder="Buscar templates..."
               className="bg-transparent border-none outline-none text-sm w-full text-white placeholder:text-gray-600"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Buscar templates por nome ou conteúdo"
             />
           </div>
 

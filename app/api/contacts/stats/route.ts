@@ -1,12 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { contactDb } from '@/lib/supabase-db'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 /**
  * GET /api/contacts/stats
  * Get contact statistics
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSessionOrApiKey(request)
+    if (auth) return auth
+
     const stats = await contactDb.getStats()
     return NextResponse.json(stats, {
       headers: {

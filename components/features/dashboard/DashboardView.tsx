@@ -82,26 +82,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
   const rangeSize = range === '7D' ? 7 : range === '15D' ? 15 : 30;
   const chartData = stats.chartData || [];
   const StatSkeleton = () => (
-    <div className="glass-panel p-6 rounded-2xl animate-pulse">
+    <div className="glass-panel p-6 rounded-2xl">
       <div className="flex items-start justify-between mb-6">
-        <div className="w-12 h-12 rounded-xl bg-zinc-700/50" />
-        <div className="w-16 h-6 rounded-full bg-zinc-700/50" />
+        <div className="w-12 h-12 rounded-xl bg-zinc-700/50 animate-pulse" />
+        <div className="w-16 h-6 rounded-full bg-zinc-700/50 animate-pulse" style={{ animationDelay: '150ms' }} />
       </div>
       <div>
-        <div className="w-20 h-9 bg-zinc-700/50 rounded mb-2" />
-        <div className="w-28 h-4 bg-zinc-700/50 rounded" />
+        <div className="w-20 h-9 bg-zinc-700/50 rounded mb-2 animate-pulse" style={{ animationDelay: '300ms' }} />
+        <div className="w-28 h-4 bg-zinc-700/50 rounded animate-pulse" style={{ animationDelay: '450ms' }} />
       </div>
     </div>
   );
 
   // Skeleton loader for campaign rows
   const CampaignSkeleton = () => (
-    <div className="flex items-center justify-between py-4 px-4 animate-pulse">
+    <div className="flex items-center justify-between py-4 px-4">
       <div className="flex-1">
-        <div className="w-40 h-5 bg-zinc-700/50 rounded mb-2" />
-        <div className="w-24 h-3 bg-zinc-700/50 rounded" />
+        <div className="w-40 h-5 bg-zinc-700/50 rounded mb-2 animate-pulse" />
+        <div className="w-24 h-3 bg-zinc-700/50 rounded animate-pulse" style={{ animationDelay: '150ms' }} />
       </div>
-      <div className="w-20 h-6 bg-zinc-700/50 rounded-full" />
+      <div className="w-20 h-6 bg-zinc-700/50 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
     </div>
   );
 
@@ -115,7 +115,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
         <PageActions>
           <PrefetchLink 
             href="/campaigns/new"
-            className="bg-white text-black hover:bg-white/90 px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-[0_0_20px_rgba(255,255,255,0.15)] ring-1 ring-white/30"
+            className="bg-white text-black hover:bg-white/90 px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-[0_0_20px_rgba(255,255,255,0.15)] ring-1 ring-white/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            aria-label="Criar nova campanha rápida"
           >
             Campanha Rápida
           </PrefetchLink>
@@ -263,9 +264,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {recentCampaigns.map((campaign) => (
-                    <tr key={campaign.id} className="hover:bg-white/5 transition-colors group cursor-pointer">
+                    <tr key={campaign.id} className="hover:bg-white/5 transition-all duration-200 group cursor-pointer hover:shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]">
                       <td className="px-6 py-5">
-                        <p className="font-medium text-white group-hover:text-primary-400 transition-colors">{campaign.name}</p>
+                        <p className="font-medium text-white group-hover:text-primary-400 transition-colors duration-200">{campaign.name}</p>
                         <p className="text-gray-500 text-xs mt-1 font-mono">{new Date(campaign.createdAt).toLocaleDateString('pt-BR')}</p>
                       </td>
                       <td className="px-6 py-5 text-right">

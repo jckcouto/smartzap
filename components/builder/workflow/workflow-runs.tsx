@@ -347,7 +347,7 @@ function OutputDisplay({
                 className="h-96 w-full rounded"
                 sandbox="allow-scripts allow-same-origin"
                 src={displayValue}
-                title="Output preview"
+                title="Preview de saida"
               />
             </div>
           );
@@ -387,7 +387,7 @@ function OutputDisplay({
   return (
     <>
       {/* Always show JSON output */}
-      <CollapsibleSection copyData={output} title="Output">
+      <CollapsibleSection copyData={output} title="Saida">
         <pre className="overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
           <JsonWithLinks data={output} />
         </pre>
@@ -398,7 +398,7 @@ function OutputDisplay({
         <CollapsibleSection
           defaultExpanded
           externalLink={externalLink}
-          title="Result"
+          title="Resultado"
         >
           {richResult}
         </CollapsibleSection>
@@ -480,7 +480,7 @@ function ExecutionLogEntry({
         {isExpanded && (
           <div className="mt-2 mb-2 space-y-3 px-3">
             {log.input !== null && log.input !== undefined && (
-              <CollapsibleSection copyData={log.input} title="Input">
+              <CollapsibleSection copyData={log.input} title="Entrada">
                 <pre className="overflow-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
                   <JsonWithLinks data={log.input} />
                 </pre>
@@ -498,7 +498,7 @@ function ExecutionLogEntry({
                 copyData={log.error}
                 defaultExpanded
                 isError
-                title="Error"
+                title="Erro"
               >
                 <pre className="overflow-auto rounded-lg border border-red-500/20 bg-red-500/5 p-3 font-mono text-red-600 text-xs leading-relaxed">
                   {log.error}
@@ -507,7 +507,7 @@ function ExecutionLogEntry({
             )}
             {!(log.input || log.output || log.error) && (
               <div className="rounded-lg border bg-muted/30 py-4 text-center text-muted-foreground text-xs">
-                No data recorded
+                Nenhum dado registrado
               </div>
             )}
           </div>
@@ -550,7 +550,7 @@ export function WorkflowRuns({
         const data = await api.workflow.getExecutions(currentWorkflowId);
         setExecutions(data as WorkflowExecution[]);
       } catch (error) {
-        console.error("Failed to load executions:", error);
+        console.error("Falha ao carregar execucoes:", error);
         setExecutions([]);
       } finally {
         if (showLoading) {
@@ -624,7 +624,7 @@ export function WorkflowRuns({
           setExecutionLogs(createExecutionLogsMap(mappedLogs));
         }
       } catch (error) {
-        console.error("Failed to load execution logs:", error);
+        console.error("Falha ao carregar logs de execucao:", error);
         setLogs((prev) => ({ ...prev, [executionId]: [] }));
       }
     },
@@ -686,7 +686,7 @@ export function WorkflowRuns({
           setExecutionLogs(createExecutionLogsMap(mappedLogs));
         }
       } catch (error) {
-        console.error(`Failed to refresh logs for ${executionId}:`, error);
+        console.error(`Falha ao atualizar logs para ${executionId}:`, error);
       }
     },
     [mapNodeLabels, selectedExecutionId, setExecutionLogs]
@@ -708,7 +708,7 @@ export function WorkflowRuns({
           await refreshExecutionLogs(executionId);
         }
       } catch (error) {
-        console.error("Failed to poll executions:", error);
+        console.error("Falha ao monitorar execucoes:", error);
       }
     };
 
@@ -798,9 +798,11 @@ export function WorkflowRuns({
         <div className="mb-3 rounded-lg border border-dashed p-4">
           <Play className="h-6 w-6 text-muted-foreground" />
         </div>
-        <div className="font-medium text-foreground text-sm">No runs yet</div>
+        <div className="font-medium text-foreground text-sm">
+          Nenhuma execucao ainda
+        </div>
         <div className="mt-1 text-muted-foreground text-xs">
-          Execute your workflow to see runs here
+          Execute o fluxo para ver execucoes aqui
         </div>
       </div>
     );
@@ -850,7 +852,7 @@ export function WorkflowRuns({
               >
                 <div className="mb-1 flex items-center gap-2">
                   <span className="font-semibold text-sm">
-                    Run #{executions.length - index}
+                    Execucao #{executions.length - index}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 font-mono text-muted-foreground text-xs">
@@ -870,7 +872,7 @@ export function WorkflowRuns({
                       <span>•</span>
                       <span>
                         {executionLogs.length}{" "}
-                        {executionLogs.length === 1 ? "step" : "steps"}
+                        {executionLogs.length === 1 ? "etapa" : "etapas"}
                       </span>
                     </>
                   )}
@@ -894,7 +896,7 @@ export function WorkflowRuns({
               <div className="border-t bg-muted/20">
                 {executionLogs.length === 0 ? (
                   <div className="py-8 text-center text-muted-foreground text-xs">
-                    No steps recorded
+                    Nenhuma etapa registrada
                   </div>
                 ) : (
                   <div className="p-4">

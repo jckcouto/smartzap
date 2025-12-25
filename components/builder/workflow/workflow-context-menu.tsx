@@ -7,7 +7,7 @@ import { nanoid } from "nanoid";
 import { useCallback, useEffect, useRef } from "react";
 import { ConfirmOverlay } from "@/components/builder/overlays/confirm-overlay";
 import { useOverlay } from "@/components/builder/overlays/overlay-provider";
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 import {
   addNodeAtom,
   deleteEdgeAtom,
@@ -51,10 +51,10 @@ export function WorkflowContextMenu({
       const nodeId = menuState.nodeId;
       onClose();
       openOverlay(ConfirmOverlay, {
-        title: "Delete Step",
+        title: "Excluir etapa",
         message:
-          "Are you sure you want to delete this node? This action cannot be undone.",
-        confirmLabel: "Delete",
+          "Tem certeza que deseja excluir esta etapa? Essa ação nao pode ser desfeita.",
+        confirmLabel: "Excluir",
         confirmVariant: "destructive" as const,
         onConfirm: () => {
           deleteNode(nodeId);
@@ -68,10 +68,10 @@ export function WorkflowContextMenu({
       const edgeId = menuState.edgeId;
       onClose();
       openOverlay(ConfirmOverlay, {
-        title: "Delete Connection",
+        title: "Excluir conexão",
         message:
-          "Are you sure you want to delete this connection? This action cannot be undone.",
-        confirmLabel: "Delete",
+          "Tem certeza que deseja excluir esta conexão? Essa ação nao pode ser desfeita.",
+        confirmLabel: "Excluir",
         confirmVariant: "destructive" as const,
         onConfirm: () => {
           deleteEdge(edgeId);
@@ -152,10 +152,10 @@ export function WorkflowContextMenu({
 
   const getNodeLabel = () => {
     if (!menuState.nodeId) {
-      return "Step";
+      return "Etapa";
     }
     const node = nodes.find((n) => n.id === menuState.nodeId);
-    return node?.data.label || "Step";
+    return node?.data.label || "Etapa";
   };
 
   return (
@@ -171,7 +171,7 @@ export function WorkflowContextMenu({
         <MenuItem
           disabled={isTriggerNode}
           icon={<Trash2 className="size-4" />}
-          label={`Delete ${getNodeLabel()}`}
+          label={`Excluir ${getNodeLabel()}`}
           onClick={handleDeleteNode}
           variant="destructive"
         />
@@ -180,7 +180,7 @@ export function WorkflowContextMenu({
       {menuState.type === "edge" && (
         <MenuItem
           icon={<Link2Off className="size-4" />}
-          label="Delete Connection"
+          label="Excluir conexão"
           onClick={handleDeleteEdge}
           variant="destructive"
         />
@@ -189,7 +189,7 @@ export function WorkflowContextMenu({
       {menuState.type === "pane" && (
         <MenuItem
           icon={<Plus className="size-4" />}
-          label="Add Step"
+          label="Adicionar etapa"
           onClick={handleAddStep}
         />
       )}

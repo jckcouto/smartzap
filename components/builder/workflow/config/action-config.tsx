@@ -62,7 +62,7 @@ function DatabaseQueryFields({
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="dbQuery">SQL Query</Label>
+      <Label htmlFor="dbQuery">Consulta SQL</Label>
         <div className="overflow-hidden rounded-md border">
           <CodeEditor
             defaultLanguage="sql"
@@ -80,12 +80,12 @@ function DatabaseQueryFields({
           />
         </div>
         <p className="text-muted-foreground text-xs">
-          The DATABASE_URL from your project integrations will be used to
-          execute this query.
+          A DATABASE_URL das integrações do projeto sera usada para executar
+          essa consulta.
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Schema (Optional)</Label>
+      <Label>Schema (opcional)</Label>
         <SchemaBuilder
           disabled={disabled}
           onChange={(schema) =>
@@ -115,14 +115,14 @@ function HttpRequestFields({
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="httpMethod">HTTP Method</Label>
+      <Label htmlFor="httpMethod">Metodo HTTP</Label>
         <Select
           disabled={disabled}
           onValueChange={(value) => onUpdateConfig("httpMethod", value)}
           value={(config?.httpMethod as string) || "POST"}
         >
           <SelectTrigger className="w-full" id="httpMethod">
-            <SelectValue placeholder="Select method" />
+            <SelectValue placeholder="Selecione o metodo" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="GET">GET</SelectItem>
@@ -134,7 +134,7 @@ function HttpRequestFields({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="endpoint">URL</Label>
+      <Label htmlFor="endpoint">URL</Label>
         <TemplateBadgeInput
           disabled={disabled}
           id="endpoint"
@@ -144,7 +144,7 @@ function HttpRequestFields({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="httpHeaders">Headers (JSON)</Label>
+      <Label htmlFor="httpHeaders">Cabecalhos (JSON)</Label>
         <div className="overflow-hidden rounded-md border">
           <CodeEditor
             defaultLanguage="json"
@@ -163,7 +163,7 @@ function HttpRequestFields({
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="httpBody">Body (JSON)</Label>
+      <Label htmlFor="httpBody">Corpo (JSON)</Label>
         <div
           className={`overflow-hidden rounded-md border ${config?.httpMethod === "GET" ? "opacity-50" : ""}`}
         >
@@ -185,7 +185,7 @@ function HttpRequestFields({
         </div>
         {config?.httpMethod === "GET" && (
           <p className="text-muted-foreground text-xs">
-            Body is disabled for GET requests
+            Body desativado para requisicoes GET
           </p>
         )}
       </div>
@@ -205,7 +205,7 @@ function ConditionFields({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="condition">Condition Expression</Label>
+      <Label htmlFor="condition">Expressao de condicao</Label>
       <TemplateBadgeInput
         disabled={disabled}
         id="condition"
@@ -232,7 +232,7 @@ function DelayFields({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="delayMs">Delay (ms)</Label>
+      <Label htmlFor="delayMs">Atraso (ms)</Label>
       <Input
         disabled={disabled}
         id="delayMs"
@@ -260,7 +260,7 @@ function VariableFields({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="variableKey">Variable Key</Label>
+      <Label htmlFor="variableKey">Chave da variável</Label>
       <Input
         disabled={disabled}
         id="variableKey"
@@ -305,7 +305,7 @@ function ExecutionFields({
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-2">
-          <Label htmlFor="retryCount">Retries</Label>
+          <Label htmlFor="retryCount">Tentativas</Label>
           <Input
             disabled={disabled}
             id="retryCount"
@@ -315,7 +315,7 @@ function ExecutionFields({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="retryDelayMs">Delay (ms)</Label>
+          <Label htmlFor="retryDelayMs">Atraso (ms)</Label>
           <Input
             disabled={disabled}
             id="retryDelayMs"
@@ -409,9 +409,9 @@ function SystemActionFields({
 
 // System actions that don't have plugins
 const SYSTEM_ACTIONS: Array<{ id: string; label: string }> = [
-  { id: "HTTP Request", label: "HTTP Request" },
-  { id: "Database Query", label: "Database Query" },
-  { id: "Condition", label: "Condition" },
+  { id: "HTTP Request", label: "Requisicao HTTP" },
+  { id: "Database Query", label: "Consulta ao banco" },
+  { id: "Condition", label: "Condicao" },
 ];
 
 const SYSTEM_ACTION_IDS = SYSTEM_ACTIONS.map((a) => a.id);
@@ -427,11 +427,8 @@ function useCategoryData() {
     const pluginCategories = getActionsByCategory();
 
     // Build category map including System with both id and label
-    const allCategories: Record<
-      string,
-      Array<{ id: string; label: string }>
-    > = {
-      System: SYSTEM_ACTIONS,
+    const allCategories: Record<string, Array<{ id: string; label: string }>> = {
+      Sistema: SYSTEM_ACTIONS,
     };
 
     for (const [category, actions] of Object.entries(pluginCategories || {})) {
@@ -452,7 +449,7 @@ function useCategoryData() {
 function getCategoryForAction(actionType: string): string | null {
   // Check system actions first
   if (SYSTEM_ACTION_IDS.includes(actionType)) {
-    return "System";
+    return "Sistema";
   }
 
   // Use findActionById which handles legacy labels from plugin registry
@@ -595,13 +592,13 @@ export function ActionConfig({
             value={category || undefined}
           >
             <SelectTrigger className="w-full" id="actionCategory">
-              <SelectValue placeholder="Select category" />
+            <SelectValue placeholder="Selecione a categoria" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="System">
                 <div className="flex items-center gap-2">
                   <Settings className="size-4" />
-                  <span>System</span>
+                  <span>Sistema</span>
                 </div>
               </SelectItem>
               <SelectSeparator />
@@ -622,7 +619,7 @@ export function ActionConfig({
 
         <div className="space-y-2">
           <Label className="ml-1" htmlFor="actionType">
-            Action
+            Ação
           </Label>
           <Select
             disabled={disabled || !category}
@@ -630,7 +627,7 @@ export function ActionConfig({
             value={normalizeActionType(actionType) || undefined}
           >
             <SelectTrigger className="w-full" id="actionType">
-              <SelectValue placeholder="Select action" />
+              <SelectValue placeholder="Selecione a ação" />
             </SelectTrigger>
             <SelectContent>
               {category &&
@@ -648,14 +645,14 @@ export function ActionConfig({
         <div className="space-y-2">
           <div className="ml-1 flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <Label>Connection</Label>
+              <Label>Conexão</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <HelpCircle className="size-3.5 text-muted-foreground" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>API key or OAuth credentials for this service</p>
+                    <p>Chave de API ou credenciais OAuth deste servico</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

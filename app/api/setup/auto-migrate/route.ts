@@ -1,9 +1,31 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { promises as fs } from 'fs'
 import path from 'path'
 
 export const runtime = 'nodejs' // Force Node.js runtime to access filesystem
+
+function getBearerToken(req: NextRequest): string | null {
+    const h = req.headers.get('authorization') || req.headers.get('Authorization')
+    if (!h) return null
+    const m = h.match(/^Bearer\s+(.+)$/i)
+    return m?.[1]?.trim() || null
+}
+
+function isAuthorized(req: NextRequest): boolean {
+    // Security: this endpoint can execute SQL using the Supabase service role key.
+    // Require a server-side shared secret to prevent anonymous triggering in production.
+    const secret = (process.env.SMARTZAP_ADMIN_KEY || process.env.SMARTZAP_API_KEY || '').trim()
+    if (!secret) return process.env.NODE_ENV !== 'production'
+
+    const q = req.nextUrl.searchParams.get('key')?.trim()
+    if (q && q === secret) return true
+
+    const token = getBearerToken(req)
+    if (token && token === secret) return true
+
+    return false
+}
 
 function isMissingRelationError(err: unknown): boolean {
     const e = err as any
@@ -30,8 +52,12 @@ async function execSql(supabase: any, sql: string): Promise<{ ok: true } | { ok:
     return { ok: false, error: r2.error ?? r1.error }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        if (!isAuthorized(req)) {
+            return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+        }
+
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
 
@@ -64,7 +90,9 @@ export async function GET() {
             return NextResponse.json(
                 {
                     error: 'Falha ao verificar se o banco já está inicializado. Não foi possível confirmar que o DB está vazio.',
-                    details: (checkError as any)?.message ?? String(checkError),
+                    ...(process.env.NODE_ENV !== 'production'
+                        ? { details: (checkError as any)?.message ?? String(checkError) }
+                        : {}),
                 },
                 { status: 500 }
             )
@@ -97,7 +125,12 @@ export async function GET() {
     } catch (error) {
         console.error('Auto-migration error:', error)
         return NextResponse.json(
-            { error: 'Migration failed', details: error instanceof Error ? error.message : String(error) },
+            {
+                error: 'Migration failed',
+                ...(process.env.NODE_ENV !== 'production'
+                    ? { details: error instanceof Error ? error.message : String(error) }
+                    : {}),
+            },
             { status: 500 }
         )
     }

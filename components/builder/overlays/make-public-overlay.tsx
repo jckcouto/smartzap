@@ -23,31 +23,31 @@ export function MakePublicOverlay({
   return (
     <Overlay
       actions={[
-        { label: "Cancel", variant: "outline", onClick: closeAll },
-        { label: "Make Public", onClick: handleConfirm },
+        { label: "Cancelar", variant: "outline", onClick: closeAll },
+        { label: "Tornar publico", onClick: handleConfirm },
       ]}
       overlayId={overlayId}
-      title="Make Workflow Public?"
+      title="Tornar fluxo publico?"
     >
       <div className="flex items-center gap-2 text-muted-foreground">
         <Globe className="size-5 shrink-0" />
         <p className="text-sm">
-          Making this workflow public means anyone with the link can:
+          Tornar este fluxo publico significa que qualquer pessoa com o link pode:
         </p>
       </div>
 
       <ul className="mt-3 list-inside list-disc space-y-1 text-muted-foreground text-sm">
-        <li>View the workflow structure and steps</li>
-        <li>See action types and configurations</li>
-        <li>Duplicate the workflow to their own account</li>
+        <li>Ver a estrutura e as etapas do fluxo</li>
+        <li>Ver tipos de ação e configurações</li>
+        <li>Duplicar o fluxo para a propria conta</li>
       </ul>
 
       <p className="mt-4 font-medium text-foreground text-sm">
-        The following will remain private:
+        O que continua privado:
       </p>
       <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground text-sm">
-        <li>Your integration credentials (API keys, tokens)</li>
-        <li>Execution logs and run history</li>
+        <li>Suas credenciais de integração (chaves de API, tokens)</li>
+        <li>Logs de execucao e historico de execucoes</li>
       </ul>
     </Overlay>
   );

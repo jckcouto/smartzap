@@ -8,7 +8,7 @@ import {
   NodeDescription,
   NodeTitle,
 } from "@/components/builder/ai-elements/node";
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 import type { WorkflowNodeData } from "@/lib/builder/workflow-store";
 
 type TriggerNodeProps = NodeProps & {
@@ -22,7 +22,7 @@ export const TriggerNode = memo(({ data, selected }: TriggerNodeProps) => {
 
   const triggerType = (data.config?.triggerType as string) || "Manual";
   const displayTitle = data.label || triggerType;
-  const displayDescription = data.description || "Trigger";
+  const displayDescription = data.description || "Gatilho";
   const status = data.status;
 
   // Select icon based on trigger type

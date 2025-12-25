@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 
 type PreviewProps = {
   actionType: string;
@@ -13,23 +13,24 @@ function getPreviewText(actionType: string, config: Record<string, unknown>) {
     case "Ask Question":
     case "whatsapp/send-message":
     case "whatsapp/ask-question":
-      return String(config.message || "").trim() || "Your message preview";
+      return String(config.message || "").trim() || "Preview da mensagem";
     case "Send Template":
     case "whatsapp/send-template": {
-      const name = String(config.templateName || "").trim() || "template_name";
+      const name =
+        String(config.templateName || "").trim() || "nome_do_template";
       return `Template: ${name}`;
     }
     case "Buttons":
     case "whatsapp/send-buttons":
-      return String(config.body || "").trim() || "Choose an option";
+      return String(config.body || "").trim() || "Escolha uma opcao";
     case "List":
     case "whatsapp/send-list":
-      return String(config.body || "").trim() || "Select an item";
+      return String(config.body || "").trim() || "Selecione um item";
     case "Send Media":
     case "whatsapp/send-media":
       return (
         String(config.caption || "").trim() ||
-        "Media message (image/video/document)"
+        "Mensagem de midia (imagem/video/documento)"
       );
     default:
       return "";
@@ -66,7 +67,7 @@ export function WhatsAppPreview({ actionType, config }: PreviewProps) {
   return (
     <div className="rounded-xl border border-white/10 bg-black/60 p-4">
       <div className="text-xs uppercase tracking-widest text-muted-foreground">
-        WhatsApp Preview
+        Preview do WhatsApp
       </div>
       <div className="mt-3 space-y-2">
         <div
@@ -85,7 +86,7 @@ export function WhatsAppPreview({ actionType, config }: PreviewProps) {
                 className="max-w-[260px] rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-xs text-white/80"
                 key={`${button.id || button.title}-${index}`}
               >
-                {button.title || "Button"}
+                {button.title || "Botao"}
               </div>
             ))}
           </div>

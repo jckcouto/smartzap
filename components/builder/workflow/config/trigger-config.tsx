@@ -37,7 +37,7 @@ export function TriggerConfig({
   const handleCopyWebhookUrl = () => {
     if (webhookUrl) {
       navigator.clipboard.writeText(webhookUrl);
-      toast.success("Webhook URL copied to clipboard");
+      toast.success("URL do webhook cópiada");
     }
   };
 
@@ -45,7 +45,7 @@ export function TriggerConfig({
     <>
       <div className="space-y-2">
         <Label className="ml-1" htmlFor="triggerType">
-          Trigger Type
+          Tipo de gatilho
         </Label>
         <Select
           disabled={disabled}
@@ -53,7 +53,7 @@ export function TriggerConfig({
           value={(config?.triggerType as string) || "Manual"}
         >
           <SelectTrigger className="w-full" id="triggerType">
-            <SelectValue placeholder="Select trigger type" />
+            <SelectValue placeholder="Selecione o gatilho" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Manual">
@@ -65,13 +65,13 @@ export function TriggerConfig({
             <SelectItem value="Keywords">
               <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4" />
-                Keywords
+                Palavras-chave
               </div>
             </SelectItem>
             <SelectItem value="Schedule">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Schedule
+                Agendamento
               </div>
             </SelectItem>
             <SelectItem value="Webhook">
@@ -93,7 +93,7 @@ export function TriggerConfig({
               <Input
                 className="font-mono text-xs"
                 disabled
-                value={webhookUrl || "Save workflow to generate webhook URL"}
+                value={webhookUrl || "Salve o fluxo para gerar a URL do webhook"}
               />
               <Button
                 disabled={!webhookUrl}
@@ -106,7 +106,7 @@ export function TriggerConfig({
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Request Schema (Optional)</Label>
+            <Label>Schema da requisicao (opcional)</Label>
             <SchemaBuilder
               disabled={disabled}
               onChange={(schema) =>
@@ -121,11 +121,13 @@ export function TriggerConfig({
               }
             />
             <p className="text-muted-foreground text-xs">
-              Define the expected structure of the incoming webhook payload.
+              Defina a estrutura esperada do payload recebido.
             </p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="webhookMockRequest">Mock Request (Optional)</Label>
+            <Label htmlFor="webhookMockRequest">
+              Requisicao mock (opcional)
+            </Label>
             <div className="overflow-hidden rounded-md border">
               <CodeEditor
                 defaultLanguage="json"
@@ -145,7 +147,7 @@ export function TriggerConfig({
               />
             </div>
             <p className="text-muted-foreground text-xs">
-              Enter a sample JSON payload to test the webhook trigger.
+              Informe um JSON de exemplo para testar o webhook.
             </p>
           </div>
         </>
@@ -156,19 +158,18 @@ export function TriggerConfig({
         <>
           <div className="space-y-2">
             <Label className="ml-1" htmlFor="keywordList">
-              Keywords (one per line)
+              Palavras-chave (uma por linha)
             </Label>
             <TemplateBadgeTextarea
               disabled={disabled}
               id="keywordList"
               onChange={(value) => onUpdateConfig("keywordList", value)}
-              placeholder={"price\npricing\nquote\norcamento"}
+              placeholder={"preco\nvendas\norcamento\nsuporte"}
               rows={6}
               value={(config?.keywordList as string) || ""}
             />
             <p className="text-muted-foreground text-xs">
-              Trigger only when the inbound message includes any of these
-              keywords.
+              Dispara quando a mensagem recebida contem qualquer palavra-chave.
             </p>
           </div>
         </>
@@ -179,19 +180,19 @@ export function TriggerConfig({
         <>
           <div className="space-y-2">
             <Label className="ml-1" htmlFor="scheduleCron">
-              Cron Expression
+              Expressao cron
             </Label>
             <Input
               disabled={disabled}
               id="scheduleCron"
               onChange={(e) => onUpdateConfig("scheduleCron", e.target.value)}
-              placeholder="0 9 * * * (every day at 9am)"
+              placeholder="0 9 * * * (todos os dias as 09:00)"
               value={(config?.scheduleCron as string) || ""}
             />
           </div>
           <div className="space-y-2">
             <Label className="ml-1" htmlFor="scheduleTimezone">
-              Timezone
+              Fuso horario
             </Label>
             <TimezoneSelect
               disabled={disabled}

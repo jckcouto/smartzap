@@ -62,7 +62,7 @@ export function validateWorkflowSchema(input: unknown) {
       success: false as const,
       errors: {
         formErrors: [
-          `Workflow must have exactly one trigger node (found ${triggerCount}).`,
+          `O fluxo deve ter exatamente um node de gatilho (encontrado ${triggerCount}).`,
         ],
         fieldErrors: {},
       },
@@ -78,7 +78,7 @@ export function validateWorkflowSchema(input: unknown) {
       success: false as const,
       errors: {
         formErrors: [
-          `Workflow has ${invalidEdges.length} edge(s) referencing missing nodes.`,
+          `O fluxo tem ${invalidEdges.length} conexão(oes) com nodes ausentes.`,
         ],
         fieldErrors: {},
       },
@@ -101,7 +101,7 @@ function basicWorkflowValidation(input: unknown) {
     return {
       success: false as const,
       errors: {
-        formErrors: ["Workflow payload is missing nodes or edges."],
+        formErrors: ["O payload do fluxo nao possui nodes ou conexões."],
         fieldErrors: {},
       },
     };
@@ -114,7 +114,7 @@ function basicWorkflowValidation(input: unknown) {
       success: false as const,
       errors: {
         formErrors: [
-          `Workflow must have exactly one trigger node (found ${triggerCount}).`,
+          `O fluxo deve ter exatamente um node de gatilho (encontrado ${triggerCount}).`,
         ],
         fieldErrors: {},
       },
@@ -130,7 +130,7 @@ function basicWorkflowValidation(input: unknown) {
       success: false as const,
       errors: {
         formErrors: [
-          `Workflow has ${invalidEdges.length} edge(s) referencing missing nodes.`,
+          `O fluxo tem ${invalidEdges.length} conexão(oes) com nodes ausentes.`,
         ],
         fieldErrors: {},
       },

@@ -834,11 +834,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 ) : limitsError ? (
                   <button
                     onClick={onRefreshLimits}
-                    className="h-10 px-3 bg-red-500/10 rounded-lg text-xs font-medium text-red-400 border border-red-500/20 flex items-center gap-1.5 hover:bg-red-500/20 transition-colors"
+                    className="h-10 px-3 bg-red-500/10 rounded-lg text-xs font-medium text-red-400 border border-red-500/20 flex items-center gap-1.5 hover:bg-red-500/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2"
+                    aria-label="Tentar buscar limites da conta novamente"
                   >
-                    <AlertCircle size={12} />
+                    <AlertCircle size={12} aria-hidden="true" />
                     {limitsErrorMessage || 'Erro ao buscar limites'}
-                    <RefreshCw size={10} className="ml-1" />
+                    <RefreshCw size={10} className="ml-1" aria-hidden="true" />
                   </button>
                 ) : (
                   <span className="px-3 py-1.5 bg-zinc-900 rounded-lg text-xs font-medium text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
@@ -872,19 +873,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   // Toggle simples. O scroll é feito no useEffect quando vira true.
                   setIsEditing((v) => !v);
                 }}
-                className={`group relative overflow-hidden rounded-xl h-10 px-4 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2
+                className={`group relative overflow-hidden rounded-xl h-10 px-4 text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2
                   ${isEditing
                     ? 'bg-white text-black shadow-lg hover:bg-gray-100'
                     : 'bg-white/5 text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
                   }`}
+                aria-label={isEditing ? 'Cancelar edição das configurações' : 'Editar configurações'}
+                aria-pressed={isEditing}
               >
-                <Edit2 size={14} className={`transition-transform duration-500 ${isEditing ? 'rotate-45' : 'group-hover:scale-110'}`} />
+                <Edit2 size={14} className={`transition-transform duration-500 ${isEditing ? 'rotate-45' : 'group-hover:scale-110'}`} aria-hidden="true" />
                 {isEditing ? 'Cancelar' : 'Editar'}
               </button>
 
               <button
                 onClick={onDisconnect}
-                className="text-xs font-medium text-red-400/60 hover:text-red-400 hover:bg-red-500/5 h-10 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                className="text-xs font-medium text-red-400/60 hover:text-red-400 hover:bg-red-500/5 h-10 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2"
+                aria-label="Desconectar conta do WhatsApp"
               >
                 Desconectar
               </button>

@@ -32,7 +32,7 @@ export type WorkflowRecord = {
   lastPublishedVersion?: number | null;
 };
 
-const DEFAULT_WORKFLOW_NAME = "Starter Workflow";
+const DEFAULT_WORKFLOW_NAME = "Fluxo inicial";
 
 export function buildDefaultGraph(): {
   nodes: WorkflowNode[];
@@ -48,8 +48,8 @@ export function buildDefaultGraph(): {
         type: "trigger",
         position: { x: 80, y: 120 },
         data: {
-          label: "Incoming Message",
-          description: "Start when a message arrives",
+          label: "Mensagem recebida",
+          description: "Inicia quando uma mensagem chega",
           type: "trigger",
           config: { triggerType: "Webhook" },
         },
@@ -59,8 +59,8 @@ export function buildDefaultGraph(): {
         type: "action",
         position: { x: 420, y: 120 },
         data: {
-          label: "Send Message",
-          description: "Reply to the user",
+          label: "Enviar mensagem",
+          description: "Responder ao usuario",
           type: "action",
           config: { actionType: "Send Message" },
         },

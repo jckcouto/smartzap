@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 export const dynamic = 'force-dynamic' // Prevent caching of verification requests
+export const runtime = 'nodejs'
 import { getSupabaseAdmin, supabase } from '@/lib/supabase'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { upsertPhoneSuppression } from '@/lib/phone-suppressions'
@@ -41,6 +43,29 @@ async function getWhatsAppAccessToken(): Promise<string | null> {
 
 // Get or generate webhook verify token (Supabase settings preferred, env var fallback)
 import { getVerifyToken } from '@/lib/verify-token'
+
+function verifyMetaWebhookSignature(input: { request: NextRequest; rawBody: string }): boolean {
+  const appSecret = String(process.env.META_APP_SECRET || '').trim()
+  // Compatibility mode: if not configured, do not block (but once configured, enforce).
+  if (!appSecret) return true
+
+  const header =
+    input.request.headers.get('x-hub-signature-256') ||
+    input.request.headers.get('X-Hub-Signature-256') ||
+    ''
+
+  if (!header.startsWith('sha256=')) return false
+
+  const expected = `sha256=${createHmac('sha256', appSecret).update(input.rawBody, 'utf8').digest('hex')}`
+  try {
+    const a = Buffer.from(header)
+    const b = Buffer.from(expected)
+    if (a.length !== b.length) return false
+    return timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
 
 function extractInboundText(message: any): string {
   // Meta pode enviar diferentes tipos de payload: text/button/interactive
@@ -259,7 +284,22 @@ export async function GET(request: NextRequest) {
 // Webhook Event Receiver
 // Supabase: fonte da verdade para status de mensagens
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null)
+  const rawBody = await request.text().catch(() => '')
+  if (!rawBody) {
+    return NextResponse.json({ status: 'ignored', error: 'Body inválido' }, { status: 400 })
+  }
+
+  if (!verifyMetaWebhookSignature({ request, rawBody })) {
+    return NextResponse.json({ status: 'unauthorized' }, { status: 401 })
+  }
+
+  const body = (() => {
+    try {
+      return JSON.parse(rawBody)
+    } catch {
+      return null
+    }
+  })()
   if (!body) {
     return NextResponse.json({ status: 'ignored', error: 'Body inválido' }, { status: 400 })
   }

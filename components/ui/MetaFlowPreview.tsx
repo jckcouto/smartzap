@@ -311,11 +311,21 @@ export function MetaFlowPreview(props: {
       <div className="absolute inset-x-0 top-6 bottom-0 rounded-t-2xl bg-[#1f2223] border-t border-white/10 overflow-hidden">
         {/* topbar */}
         <div className="h-14 px-4 flex items-center justify-between border-b border-white/10">
-          <button type="button" className="h-9 w-9 rounded-full hover:bg-white/5 flex items-center justify-center text-zinc-200">
+          <button
+            type="button"
+            aria-label="Fechar preview do flow"
+            title="Fechar"
+            className="h-9 w-9 rounded-full hover:bg-white/5 flex items-center justify-center text-zinc-200"
+          >
             <X className="h-5 w-5" />
           </button>
           <div className="text-[18px] font-semibold text-zinc-100 truncate">{title}</div>
-          <button type="button" className="h-9 w-9 rounded-full hover:bg-white/5 flex items-center justify-center text-zinc-200">
+          <button
+            type="button"
+            aria-label="Mais opcoes do preview"
+            title="Mais opcoes"
+            className="h-9 w-9 rounded-full hover:bg-white/5 flex items-center justify-center text-zinc-200"
+          >
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>

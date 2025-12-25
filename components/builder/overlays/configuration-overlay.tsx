@@ -189,10 +189,10 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
 
   const handleDeleteNode = useCallback(() => {
     push(ConfirmOverlay, {
-      title: "Delete Step",
+      title: "Excluir etapa",
       message:
-        "Are you sure you want to delete this node? This action cannot be undone.",
-      confirmLabel: "Delete",
+        "Tem certeza que deseja excluir esta etapa? Essa ação nao pode ser desfeita.",
+      confirmLabel: "Excluir",
       confirmVariant: "destructive" as const,
       onConfirm: () => {
         if (selectedNode) {
@@ -206,7 +206,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
   const handleCopyCode = useCallback(() => {
     if (!selectedNode) return;
     navigator.clipboard.writeText(generateNodeCode(selectedNode));
-    toast.success("Code copied to clipboard");
+    toast.success("Codigo cópiado");
   }, [selectedNode]);
 
   const handleRefreshRuns = async () => {
@@ -219,10 +219,10 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
 
   const handleDeleteAllRuns = () => {
     push(ConfirmOverlay, {
-      title: "Delete All Runs",
+      title: "Excluir todas as execucoes",
       message:
-        "Are you sure you want to delete all workflow runs? This action cannot be undone.",
-      confirmLabel: "Delete",
+        "Tem certeza que deseja excluir todas as execucoes do fluxo? Essa ação nao pode ser desfeita.",
+      confirmLabel: "Excluir",
       confirmVariant: "destructive" as const,
       onConfirm: async () => {
         if (!currentWorkflowId) return;
@@ -232,10 +232,10 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
           if (refreshRunsRef.current) {
             await refreshRunsRef.current();
           }
-          toast.success("All runs deleted");
+          toast.success("Execucoes excluidas");
         } catch (error) {
           console.error("Failed to delete runs:", error);
-          toast.error("Failed to delete runs");
+          toast.error("Falha ao excluir execucoes");
         }
       },
     });
@@ -260,24 +260,24 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
           : "properties";
       switch (validTab) {
         case "properties":
-          return "Workflow";
+          return "Fluxo";
         case "code":
-          return "Code";
+          return "Codigo";
         case "runs":
-          return "Runs";
+          return "Execucoes";
         default:
-          return "Workflow";
+          return "Fluxo";
       }
     }
     switch (activeTab) {
       case "properties":
-        return "Properties";
+        return "Propriedades";
       case "code":
-        return "Code";
+        return "Codigo";
       case "runs":
-        return "Runs";
+        return "Execucoes";
       default:
-        return "Properties";
+        return "Propriedades";
     }
   };
 
@@ -297,10 +297,10 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
   // Handle clear workflow
   const handleClearWorkflow = () => {
     push(ConfirmOverlay, {
-      title: "Clear Workflow",
+      title: "Limpar fluxo",
       message:
-        "Are you sure you want to clear all nodes and connections? This action cannot be undone.",
-      confirmLabel: "Clear Workflow",
+        "Tem certeza que deseja limpar todas as etapas e conexões? Essa ação nao pode ser desfeita.",
+      confirmLabel: "Limpar fluxo",
       confirmVariant: "destructive" as const,
       destructive: true,
       onConfirm: () => {
@@ -312,9 +312,9 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
   // Handle delete workflow
   const handleDeleteWorkflow = () => {
     push(ConfirmOverlay, {
-      title: "Delete Workflow",
-      message: `Are you sure you want to delete "${currentWorkflowName}"? This will permanently delete the workflow. This cannot be undone.`,
-      confirmLabel: "Delete Workflow",
+      title: "Excluir fluxo",
+      message: `Tem certeza que deseja excluir "${currentWorkflowName}"? Isso apagara o fluxo definitivamente.`,
+      confirmLabel: "Excluir fluxo",
       confirmVariant: "destructive" as const,
       destructive: true,
       onConfirm: async () => {
@@ -322,11 +322,11 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
         try {
           await api.workflow.delete(currentWorkflowId);
           closeAll();
-          toast.success("Workflow deleted successfully");
+          toast.success("Fluxo excluido");
           window.location.href = "/";
         } catch (error) {
           console.error("Failed to delete workflow:", error);
-          toast.error("Failed to delete workflow. Please try again.");
+          toast.error("Falha ao excluir o fluxo. Tente novamente.");
         }
       },
     });
@@ -351,17 +351,17 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
   // Handle copy workflow code
   const handleCopyWorkflowCode = () => {
     navigator.clipboard.writeText(workflowCode);
-    toast.success("Code copied to clipboard");
+    toast.success("Codigo cópiado");
   };
 
   // Handle delete edge
   const handleDeleteEdge = () => {
     if (selectedEdgeId) {
       push(ConfirmOverlay, {
-        title: "Delete Connection",
+        title: "Excluir conexão",
         message:
-          "Are you sure you want to delete this connection? This action cannot be undone.",
-        confirmLabel: "Delete",
+          "Tem certeza que deseja excluir esta conexão? Essa ação nao pode ser desfeita.",
+        confirmLabel: "Excluir",
         confirmVariant: "destructive" as const,
         onConfirm: () => {
           deleteEdge(selectedEdgeId);
@@ -375,26 +375,26 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
   if (selectedEdge && !selectedNode) {
     return (
       <div className="flex h-full max-h-[80vh] flex-col">
-        <SmartOverlayHeader overlayId={overlayId} title="Connection" />
+        <SmartOverlayHeader overlayId={overlayId} title="Conexão" />
 
         <div className="flex-1 space-y-4 overflow-y-auto px-6 pt-4 pb-6">
           <div className="space-y-2">
-            <Label htmlFor="edge-id">Connection ID</Label>
+            <Label htmlFor="edge-id">ID da conexão</Label>
             <Input disabled id="edge-id" value={selectedEdge.id} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edge-source">Source</Label>
+            <Label htmlFor="edge-source">Origem</Label>
             <Input disabled id="edge-source" value={selectedEdge.source} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edge-target">Target</Label>
+            <Label htmlFor="edge-target">Destino</Label>
             <Input disabled id="edge-target" value={selectedEdge.target} />
           </div>
           {isOwner && (
             <div className="pt-2">
               <Button onClick={handleDeleteEdge} variant="ghost">
                 <Trash2 className="mr-2 size-4" />
-                Delete Connection
+                Excluir conexão
               </Button>
             </div>
           )}
@@ -421,7 +421,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
           {validWorkflowTab === "properties" && (
             <div className="space-y-4 px-6 pt-4 pb-6">
               <div className="space-y-2">
-                <Label htmlFor="workflow-name">Workflow Name</Label>
+                <Label htmlFor="workflow-name">Nome do fluxo</Label>
                 <Input
                   disabled={!isOwner}
                   id="workflow-name"
@@ -430,18 +430,17 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="workflow-id">Workflow ID</Label>
+                <Label htmlFor="workflow-id">ID do fluxo</Label>
                 <Input
                   disabled
                   id="workflow-id"
-                  value={currentWorkflowId || "Not saved"}
+                  value={currentWorkflowId || "Nao salvo"}
                 />
               </div>
               {!isOwner && (
                 <div className="rounded-lg border border-muted bg-muted/30 p-3">
                   <p className="text-muted-foreground text-sm">
-                    You are viewing a public workflow. Duplicate it to make
-                    changes.
+                    Voce esta vendo um fluxo publico. Duplique para editar.
                   </p>
                 </div>
               )}
@@ -449,11 +448,11 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                 <div className="flex items-center gap-2 pt-2">
                   <Button onClick={handleClearWorkflow} variant="ghost">
                     <Eraser className="mr-2 size-4" />
-                    Clear
+                    Limpar
                   </Button>
                   <Button onClick={handleDeleteWorkflow} variant="ghost">
                     <Trash2 className="mr-2 size-4" />
-                    Delete
+                    Excluir
                   </Button>
                 </div>
               )}
@@ -476,7 +475,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                   variant="ghost"
                 >
                   <Copy className="mr-1 size-3" />
-                  Copy
+                  Cópiar
                 </Button>
               </div>
               <div className="h-[400px]">
@@ -537,12 +536,12 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
               validWorkflowTab === "properties"
                 ? "text-foreground"
                 : "text-muted-foreground"
-            }`}
+          }`}
             onClick={() => setActiveTab("properties")}
             type="button"
           >
             <Settings2 className="size-5" />
-            Workflow
+            Fluxo
           </button>
           <button
             className={`flex flex-1 flex-col items-center gap-1 py-3 font-medium text-xs transition-colors ${
@@ -554,7 +553,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
             type="button"
           >
             <Code className="size-5" />
-            Code
+            Codigo
           </button>
           {isOwner && (
             <button
@@ -567,7 +566,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
               type="button"
             >
               <Play className="size-5" />
-              Runs
+              Execucoes
             </button>
           )}
         </div>
@@ -624,7 +623,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
               selectedNode.data.config?.actionType !== undefined) && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="label">Label</Label>
+                  <Label htmlFor="label">Rotulo</Label>
                   <Input
                     disabled={isGenerating || !isOwner}
                     id="label"
@@ -633,12 +632,12 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Descrição</Label>
                   <Input
                     disabled={isGenerating || !isOwner}
                     id="description"
                     onChange={(e) => handleUpdateDescription(e.target.value)}
-                    placeholder="Optional description"
+                    placeholder="Descrição opcional"
                     value={(selectedNode.data.description as string) || ""}
                   />
                 </div>
@@ -658,12 +657,12 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                     {selectedNode.data.enabled === false ? (
                       <>
                         <EyeOff className="mr-2 size-4" />
-                        Disabled
+                        Desativado
                       </>
                     ) : (
                       <>
                         <Eye className="mr-2 size-4" />
-                        Enabled
+                        Ativo
                       </>
                     )}
                   </Button>
@@ -675,7 +674,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                   variant="ghost"
                 >
                   <Trash2 className="mr-2 size-4" />
-                  Delete
+                  Excluir
                 </Button>
               </div>
             )}
@@ -701,7 +700,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                 variant="ghost"
               >
                 <Copy className="mr-2 size-4" />
-                Copy
+                Cópiar
               </Button>
             </div>
             <div className="h-[400px]">
@@ -743,7 +742,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                 <RefreshCw
                   className={`mr-2 size-4 ${isRefreshing ? "animate-spin" : ""}`}
                 />
-                Refresh
+                Atualizar
               </Button>
               <Button
                 className="text-muted-foreground"
@@ -752,7 +751,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
                 variant="ghost"
               >
                 <Eraser className="mr-2 size-4" />
-                Clear All
+                Limpar tudo
               </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
@@ -772,12 +771,12 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
             activeTab === "properties"
               ? "text-foreground"
               : "text-muted-foreground"
-          }`}
+        }`}
           onClick={() => setActiveTab("properties")}
           type="button"
         >
           <Settings2 className="size-5" />
-          Properties
+          Propriedades
         </button>
         {showCodeTab && (
           <button
@@ -788,7 +787,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
             type="button"
           >
             <Code className="size-5" />
-            Code
+            Codigo
           </button>
         )}
         {isOwner && (
@@ -800,7 +799,7 @@ export function ConfigurationOverlay({ overlayId }: ConfigurationOverlayProps) {
             type="button"
           >
             <Play className="size-5" />
-            Runs
+            Execucoes
           </button>
         )}
       </div>

@@ -16,7 +16,7 @@ import { getIntegrationLabels } from "@/lib/builder/plugins";
 
 // System integrations that don't have plugins
 const SYSTEM_INTEGRATION_LABELS: Record<string, string> = {
-  database: "Database",
+  database: "Banco de dados",
 };
 
 type IntegrationsManagerProps = {
@@ -40,7 +40,7 @@ export function IntegrationsManager({
       setIntegrations(data);
     } catch (error) {
       console.error("Failed to load integrations:", error);
-      toast.error("Failed to load integrations");
+      toast.error("Falha ao carregar integrações");
     } finally {
       setLoading(false);
     }
@@ -110,14 +110,16 @@ export function IntegrationsManager({
       const result = await api.integration.testConnection(id);
 
       if (result.status === "success") {
-        toast.success(result.message || "Connection successful");
+        toast.success(result.message || "Conexão realizada");
       } else {
-        toast.error(result.message || "Connection test failed");
+        toast.error(result.message || "Falha no teste de conexão");
       }
     } catch (error) {
       console.error("Connection test failed:", error);
       toast.error(
-        error instanceof Error ? error.message : "Connection test failed"
+        error instanceof Error
+          ? error.message
+          : "Falha no teste de conexão"
       );
     } finally {
       setTestingId(null);
@@ -137,7 +139,7 @@ export function IntegrationsManager({
       return (
         <div className="py-8 text-center">
           <p className="text-muted-foreground text-sm">
-            No connections configured yet
+            Nenhuma conexão configurada
           </p>
         </div>
       );
@@ -147,7 +149,7 @@ export function IntegrationsManager({
       return (
         <div className="py-8 text-center">
           <p className="text-muted-foreground text-sm">
-            No connections match your filter
+            Nenhuma conexão corresponde ao filtro
           </p>
         </div>
       );
@@ -185,7 +187,7 @@ export function IntegrationsManager({
                 {testingId === integration.id ? (
                   <Spinner className="size-3" />
                 ) : (
-                  <span className="text-xs">Test</span>
+                  <span className="text-xs">Testar</span>
                 )}
               </Button>
               <Button

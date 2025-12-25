@@ -14,17 +14,17 @@ export function ConditionConfig({
 }: ConditionConfigProps) {
   return (
     <div className="space-y-2">
-      <Label htmlFor="condition">Condition Expression</Label>
+      <Label htmlFor="condition">Expressao de condicao</Label>
       <TemplateBadgeInput
         disabled={disabled}
         id="condition"
         onChange={(value) => onUpdateConfig("condition", value)}
-        placeholder="e.g., 5 > 3, status === 200, {{PreviousNode.value}} > 100"
+        placeholder="ex: 5 > 3, status === 200, {{PreviousNode.value}} > 100"
         value={(config?.condition as string) || ""}
       />
       <p className="text-muted-foreground text-xs">
-        Enter a JavaScript expression that evaluates to true or false. You can
-        use @ to reference previous node outputs.
+        Informe uma expressao JavaScript que resulte em true ou false. Use @
+        para referenciar saidas de nodes anteriores.
       </p>
     </div>
   );

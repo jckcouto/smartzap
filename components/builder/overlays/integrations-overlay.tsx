@@ -58,17 +58,17 @@ export function IntegrationsOverlay({ overlayId }: IntegrationsOverlayProps) {
     <Overlay
       actions={[
         {
-          label: "Add Connection",
+          label: "Adicionar conexão",
           variant: "outline",
           onClick: handleAddConnection,
         },
-        { label: "Done", onClick: handleClose },
+        { label: "Concluir", onClick: handleClose },
       ]}
       overlayId={overlayId}
-      title="Connections"
+      title="Conexões"
     >
       <p className="-mt-2 mb-4 text-muted-foreground text-sm">
-        Manage API keys and credentials used by your workflows
+        Gerencie chaves de API e credenciais usadas nos fluxos
       </p>
 
       {loading ? (
@@ -82,7 +82,7 @@ export function IntegrationsOverlay({ overlayId }: IntegrationsOverlayProps) {
             <Input
               className="pl-9"
               onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter connections..."
+              placeholder="Filtrar conexões..."
               value={filter}
             />
           </div>

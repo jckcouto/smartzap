@@ -15,7 +15,7 @@ import { Overlay } from "./overlay";
 import { useOverlay } from "./overlay-provider";
 
 const SYSTEM_INTEGRATION_LABELS: Record<string, string> = {
-  database: "Database",
+  database: "Banco de dados",
 };
 
 const getLabel = (type: string): string => {
@@ -64,7 +64,7 @@ function SecretField({
         <div className="flex items-center gap-2">
           <div className="flex h-9 flex-1 items-center gap-2 rounded-md border bg-muted/30 px-3">
             <Check className="size-4 text-green-600" />
-            <span className="text-muted-foreground text-sm">Configured</span>
+            <span className="text-muted-foreground text-sm">Configurado</span>
           </div>
           <Button
             onClick={() => setIsEditing(true)}
@@ -72,7 +72,7 @@ function SecretField({
             variant="outline"
           >
             <Pencil className="mr-1.5 size-3" />
-            Change
+            Alterar
           </Button>
         </div>
       </div>
@@ -156,12 +156,12 @@ export function EditConnectionOverlay({
         name: name.trim(),
         ...(hasNewConfig ? { config } : {}),
       });
-      toast.success("Connection updated");
+      toast.success("Conexão atualizada");
       onSuccess?.();
       closeAll();
     } catch (error) {
       console.error("Failed to update integration:", error);
-      toast.error("Failed to update connection");
+      toast.error("Falha ao atualizar conexão");
     } finally {
       setSaving(false);
     }
@@ -188,9 +188,9 @@ export function EditConnectionOverlay({
 
       if (result.status === "error") {
         push(ConfirmOverlay, {
-          title: "Connection Test Failed",
-          message: `The test failed: ${result.message}\n\nDo you want to save anyway?`,
-          confirmLabel: "Save Anyway",
+          title: "Teste de conexão falhou",
+          message: `O teste falhou: ${result.message}\n\nDeseja salvar mesmo assim?`,
+          confirmLabel: "Salvar mesmo assim",
           onConfirm: async () => {
             await doSave();
           },
@@ -202,11 +202,13 @@ export function EditConnectionOverlay({
       await doSave();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to test connection";
+        error instanceof Error
+          ? error.message
+          : "Falha ao testar conexão";
       push(ConfirmOverlay, {
-        title: "Connection Test Failed",
-        message: `${message}\n\nDo you want to save anyway?`,
-        confirmLabel: "Save Anyway",
+        title: "Teste de conexão falhou",
+        message: `${message}\n\nDeseja salvar mesmo assim?`,
+        confirmLabel: "Salvar mesmo assim",
         onConfirm: async () => {
           await doSave();
         },
@@ -237,13 +239,15 @@ export function EditConnectionOverlay({
 
       setTestResult(result);
       if (result.status === "success") {
-        toast.success(result.message || "Connection successful");
+        toast.success(result.message || "Conexão realizada");
       } else {
-        toast.error(result.message || "Connection failed");
+        toast.error(result.message || "Falha na conexão");
       }
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Connection test failed";
+        error instanceof Error
+          ? error.message
+          : "Falha no teste de conexão";
       setTestResult({ status: "error", message });
       toast.error(message);
     } finally {
@@ -272,8 +276,8 @@ export function EditConnectionOverlay({
         <SecretField
           configKey="url"
           fieldId="url"
-          helpText="Connection string in the format: postgresql://user:password@host:port/database"
-          label="Database URL"
+          helpText="String de conexão no formato: postgresql://user:password@host:port/database"
+          label="URL do banco"
           onChange={updateConfig}
           placeholder="postgresql://user:password@host:port/database"
           value={config.url || ""}
@@ -334,36 +338,36 @@ export function EditConnectionOverlay({
     <Overlay
       actions={[
         {
-          label: "Delete",
+          label: "Excluir",
           variant: "ghost",
           onClick: handleDelete,
           disabled: saving || testing,
         },
         {
-          label: "Test",
+          label: "Testar",
           variant: "outline",
           onClick: handleTest,
           loading: testing,
           disabled: saving,
         },
-        { label: "Update", onClick: handleSave, loading: saving },
+        { label: "Atualizar", onClick: handleSave, loading: saving },
       ]}
       overlayId={overlayId}
-      title={`Edit ${getLabel(integration.type)}`}
+      title={`Editar ${getLabel(integration.type)}`}
     >
       <p className="-mt-2 mb-4 text-muted-foreground text-sm">
-        Update your connection credentials
+        Atualize suas credenciais de conexão
       </p>
 
       <div className="space-y-4">
         {renderConfigFields()}
 
         <div className="space-y-2">
-          <Label htmlFor="name">Label (Optional)</Label>
+          <Label htmlFor="name">Rotulo (opcional)</Label>
           <Input
             id="name"
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Production, Personal, Work"
+            placeholder="ex: Producao, Pessoal, Trabalho"
             value={name}
           />
         </div>
@@ -400,11 +404,11 @@ export function DeleteConnectionOverlay({
         await api.integration.delete(integration.id);
       }
 
-      toast.success("Connection deleted");
+      toast.success("Conexão excluida");
       onSuccess?.();
     } catch (error) {
       console.error("Failed to delete integration:", error);
-      toast.error("Failed to delete connection");
+      toast.error("Falha ao excluir conexão");
       setDeleting(false);
     }
   };
@@ -412,20 +416,20 @@ export function DeleteConnectionOverlay({
   return (
     <Overlay
       actions={[
-        { label: "Cancel", variant: "outline", onClick: pop },
+        { label: "Cancelar", variant: "outline", onClick: pop },
         {
-          label: "Delete",
+          label: "Excluir",
           variant: "destructive",
           onClick: handleDelete,
           loading: deleting,
         },
       ]}
       overlayId={overlayId}
-      title="Delete Connection"
+      title="Excluir conexão"
     >
       <p className="text-muted-foreground text-sm">
-        Are you sure you want to delete this connection? Workflows using it will
-        fail until a new one is configured.
+        Tem certeza que deseja excluir esta conexão? Fluxos que usam essa
+        conexão falharao ate uma nova ser configurada.
       </p>
 
       {integration.isManaged && (
@@ -436,7 +440,7 @@ export function DeleteConnectionOverlay({
             onCheckedChange={(checked: boolean) => setRevokeKey(checked)}
           />
           <Label className="cursor-pointer font-normal" htmlFor="revoke-key">
-            Revoke API key from Vercel
+            Revogar chave de API na Vercel
           </Label>
         </div>
       )}

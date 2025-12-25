@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { parsePhoneNumber } from 'libphonenumber-js'
 import { supabase } from '@/lib/supabase'
 import { getBrazilUfFromPhone } from '@/lib/br-geo'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 const parseList = (value: string | null): string[] => {
   if (!value) return []
@@ -29,6 +30,9 @@ const resolveCountry = (phone: string): string | null => {
  */
 export async function GET(request: Request) {
   try {
+    const auth = await requireSessionOrApiKey(request as NextRequest)
+    if (auth) return auth
+
     const url = new URL(request.url)
     const tags = parseList(url.searchParams.get('tags'))
     const countries = parseList(url.searchParams.get('countries'))

@@ -3,6 +3,7 @@ import React from 'react';
 import { Search, RefreshCw, Copy, Trash2, Calendar, Play, Pause, Loader2 } from 'lucide-react';
 import { Campaign, CampaignStatus } from '../../../types';
 import { Page, PageDescription, PageHeader, PageTitle } from '@/components/ui/page';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface CampaignListViewProps {
   campaigns: Campaign[];
@@ -119,27 +120,36 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
       {/* Filters Bar */}
       <div className="glass-panel p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full sm:w-96 bg-zinc-900 border border-white/5 rounded-lg px-4 py-2.5 focus-within:border-primary-500/50 focus-within:ring-1 focus-within:ring-primary-500/50 transition-all">
-          <Search size={18} className="text-gray-500" />
+          <Search size={18} className="text-gray-500" aria-hidden="true" />
           <input
             type="text"
             placeholder="Buscar campanhas..."
             className="bg-transparent border-none outline-none text-sm w-full text-white placeholder-gray-600"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
+            aria-label="Buscar campanhas por nome ou template"
           />
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onRefresh}
-            className="p-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg border border-white/10 transition-colors"
-            title="Atualizar"
-          >
-            <RefreshCw size={18} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onRefresh}
+                className="p-2.5 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg border border-white/10 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+                aria-label="Atualizar lista de campanhas"
+              >
+                <RefreshCw size={18} aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Atualizar lista</p>
+            </TooltipContent>
+          </Tooltip>
           <select
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
-            className="px-4 py-2.5 text-sm font-medium bg-zinc-900 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg border border-white/10 transition-colors outline-none cursor-pointer appearance-none"
+            className="px-4 py-2.5 text-sm font-medium bg-zinc-900 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg border border-white/10 transition-colors outline-none cursor-pointer appearance-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+            aria-label="Filtrar campanhas por status"
           >
             <option value="All">Todos os Status</option>
             <option value={CampaignStatus.DRAFT}>Rascunho</option>
@@ -177,8 +187,20 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
                 </tr>
               ) : campaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                    Nenhuma campanha encontrada com estes filtros.
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center">
+                        <Search size={24} className="text-gray-500" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 font-medium">Nenhuma campanha encontrada</p>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {searchTerm || filter !== 'All' 
+                            ? 'Tente ajustar os filtros ou buscar por outro termo'
+                            : 'Crie sua primeira campanha para começar'}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -186,7 +208,7 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
                   <tr
                     key={campaign.id}
                     onClick={() => onRowClick(campaign.id)}
-                    className="hover:bg-white/5 transition-colors group cursor-pointer"
+                    className="hover:bg-white/5 transition-all duration-200 group cursor-pointer hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]"
                   >
                     <td className="px-6 py-4">
                       <p className="font-medium text-white group-hover:text-primary-400 transition-colors">{campaign.name}</p>
@@ -256,69 +278,104 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
                       <div className="flex items-center justify-end gap-2">
                         {/* Quick action: Clone campaign */}
                         {onDuplicate && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onDuplicate(campaign.id); }}
-                            title="Clonar"
-                            disabled={duplicatingId === campaign.id}
-                            className="p-2 rounded-lg text-gray-400 hover:text-primary-400 hover:bg-primary-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {duplicatingId === campaign.id ? (
-                              <Loader2 size={16} className="animate-spin text-primary-400" />
-                            ) : (
-                              <Copy size={16} />
-                            )}
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onDuplicate(campaign.id); }}
+                                aria-label={`Clonar campanha ${campaign.name}`}
+                                disabled={duplicatingId === campaign.id}
+                                className="p-2 rounded-lg text-gray-400 hover:text-primary-400 hover:bg-primary-500/10 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 transition-all"
+                              >
+                                {duplicatingId === campaign.id ? (
+                                  <Loader2 size={16} className="animate-spin text-primary-400" aria-hidden="true" />
+                                ) : (
+                                  <Copy size={16} aria-hidden="true" />
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Clonar campanha</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
 
                         {/* Quick action: Start scheduled campaign */}
                         {(campaign.status === CampaignStatus.SCHEDULED || campaign.status === CampaignStatus.DRAFT) && onStart && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onStart(campaign.id); }}
-                            title="Iniciar agora"
-                            disabled={isStarting}
-                            className="p-2 rounded-lg text-gray-400 hover:text-primary-400 hover:bg-primary-500/10 disabled:opacity-50"
-                          >
-                            <Play size={16} />
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onStart(campaign.id); }}
+                                aria-label={`Iniciar campanha ${campaign.name} agora`}
+                                disabled={isStarting}
+                                className="p-2 rounded-lg text-gray-400 hover:text-primary-400 hover:bg-primary-500/10 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 transition-all"
+                              >
+                                <Play size={16} aria-hidden="true" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Iniciar agora</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
 
                         {/* Quick action: Pause sending campaign */}
                         {campaign.status === CampaignStatus.SENDING && onPause && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onPause(campaign.id); }}
-                            title="Pausar"
-                            disabled={isPausing}
-                            className="p-2 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
-                          >
-                            <Pause size={16} />
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onPause(campaign.id); }}
+                                aria-label={`Pausar envio da campanha ${campaign.name}`}
+                                disabled={isPausing}
+                                className="p-2 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 focus-visible:outline-offset-2 transition-all"
+                              >
+                                <Pause size={16} aria-hidden="true" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Pausar envio</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
 
                         {/* Quick action: Resume paused campaign */}
                         {campaign.status === CampaignStatus.PAUSED && onResume && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onResume(campaign.id); }}
-                            title="Retomar"
-                            disabled={isResuming}
-                            className="p-2 rounded-lg text-gray-400 hover:text-primary-400 hover:bg-primary-500/10 disabled:opacity-50"
-                          >
-                            <Play size={16} />
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onResume(campaign.id); }}
+                                aria-label={`Retomar envio da campanha ${campaign.name}`}
+                                disabled={isResuming}
+                                className="p-2 rounded-lg text-gray-400 hover:text-primary-400 hover:bg-primary-500/10 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 transition-all"
+                              >
+                                <Play size={16} aria-hidden="true" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Retomar envio</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
 
 
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDelete(campaign.id); }}
-                          title="Excluir"
-                          disabled={deletingId === campaign.id}
-                          className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {deletingId === campaign.id ? (
-                            <Loader2 size={16} className="animate-spin text-red-400" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDelete(campaign.id); }}
+                              aria-label={`Excluir campanha ${campaign.name}`}
+                              disabled={deletingId === campaign.id}
+                              className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2 transition-all"
+                            >
+                              {deletingId === campaign.id ? (
+                                <Loader2 size={16} className="animate-spin text-red-400" aria-hidden="true" />
+                              ) : (
+                                <Trash2 size={16} aria-hidden="true" />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Excluir campanha</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>
@@ -331,14 +388,15 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500" aria-live="polite">
               Página {currentPage} de {totalPages} • {totalFiltered} campanha(s)
             </span>
-            <div className="flex items-center gap-2">
+            <nav className="flex items-center gap-2" aria-label="Paginação de campanhas">
               <button
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+                aria-label="Página anterior"
               >
                 <span aria-hidden="true">&lt;</span>
               </button>
@@ -359,10 +417,12 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
                     <button
                       key={pageNum}
                       onClick={() => onPageChange(pageNum)}
-                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum
+                      className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 ${currentPage === pageNum
                         ? 'bg-primary-500 text-white'
                         : 'text-gray-400 hover:text-white hover:bg-white/5'
                         }`}
+                      aria-label={`Ir para página ${pageNum}`}
+                      aria-current={currentPage === pageNum ? 'page' : undefined}
                     >
                       {pageNum}
                     </button>
@@ -372,11 +432,12 @@ export const CampaignListView: React.FC<CampaignListViewProps> = ({
               <button
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+                aria-label="Próxima página"
               >
                 <span aria-hidden="true">&gt;</span>
               </button>
-            </div>
+            </nav>
           </div>
         )}
       </div>

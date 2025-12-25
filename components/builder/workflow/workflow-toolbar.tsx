@@ -206,7 +206,7 @@ function getBrokenTemplateReferences(
 
       brokenByNode.push({
         nodeId: node.id,
-        nodeLabel: node.data.label || action?.label || "Unnamed Step",
+        nodeLabel: node.data.label || action?.label || "Etapa sem nome",
         brokenReferences: brokenRefs.map((ref) => {
           // Look up human-readable field label
           const configField = flatFields.find((f) => f.key === ref.field);
@@ -296,7 +296,7 @@ function getNodeMissingFields(
 
   return {
     nodeId: node.id,
-    nodeLabel: node.data.label || action.label || "Unnamed Step",
+    nodeLabel: node.data.label || action.label || "Etapa sem nome",
     missingFields,
   };
 }
@@ -420,7 +420,7 @@ async function executeTestWorkflow({
     });
 
     if (!response.ok) {
-      throw new Error("Failed to execute workflow");
+      throw new Error("Falha ao executar o fluxo");
     }
 
     const result = await response.json();
@@ -462,15 +462,15 @@ async function executeTestWorkflow({
           // The user can click another run or deselect to reset
         }
       } catch (error) {
-        console.error("Failed to poll execution status:", error);
+        console.error("Falha ao monitorar o status da execucao:", error);
       }
     }, 500); // Poll every 500ms
 
     pollingIntervalRef.current = pollInterval;
   } catch (error) {
-    console.error("Failed to execute workflow:", error);
+    console.error("Falha ao executar o fluxo:", error);
     toast.error(
-      error instanceof Error ? error.message : "Failed to execute workflow"
+      error instanceof Error ? error.message : "Falha ao executar o fluxo"
     );
     updateNodesStatus(nodes, updateNodeData, "error");
     setIsExecuting(false);
@@ -537,8 +537,8 @@ function useWorkflowHandlers({
       await api.workflow.update(currentWorkflowId, { nodes, edges });
       setHasUnsavedChanges(false);
     } catch (error) {
-      console.error("Failed to save workflow:", error);
-      toast.error("Failed to save workflow. Please try again.");
+      console.error("Falha ao salvar o fluxo:", error);
+      toast.error("Falha ao salvar o fluxo. Tente novamente.");
     } finally {
       setIsSaving(false);
     }
@@ -546,7 +546,7 @@ function useWorkflowHandlers({
 
   const executeWorkflow = async () => {
     if (!currentWorkflowId) {
-      toast.error("Please save the workflow before executing");
+      toast.error("Salve o fluxo antes de executar");
       return;
     }
 
@@ -565,9 +565,9 @@ function useWorkflowHandlers({
       | undefined;
 
     if (triggerType === "Manual") {
-      const to = window.prompt("Recipient phone (E.164)", "");
+      const to = window.prompt("Telefone do destinatario (E.164)", "");
       if (!to) {
-        toast.error("Recipient is required for manual runs");
+        toast.error("Destinatario obrigatório para execucao manual");
         return;
       }
 
@@ -578,7 +578,7 @@ function useWorkflowHandlers({
         | string
         | undefined;
       const message = window.prompt(
-        "Message (optional)",
+        "Mensagem (opcional)",
         defaultMessage || ""
       );
 
@@ -710,7 +710,7 @@ function useWorkflowState() {
         const workflows = await api.workflow.getAll();
         setAllWorkflows(workflows);
       } catch (error) {
-        console.error("Failed to load workflows:", error);
+        console.error("Falha ao carregar fluxos:", error);
       }
     };
     loadAllWorkflows();
@@ -731,7 +731,7 @@ function useWorkflowState() {
           }))
         );
       } catch (error) {
-        console.error("Failed to load workflow versions:", error);
+        console.error("Falha ao carregar versões do fluxo:", error);
       }
     };
     loadVersions();
@@ -849,10 +849,10 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
 
   const handleClearWorkflow = () => {
     openOverlay(ConfirmOverlay, {
-      title: "Clear Workflow",
+      title: "Limpar fluxo",
       message:
-        "Are you sure you want to clear all nodes and connections? This action cannot be undone.",
-      confirmLabel: "Clear Workflow",
+        "Tem certeza que deseja limpar todos os nodes e conexões? Esta ação nao pode ser desfeita.",
+      confirmLabel: "Limpar fluxo",
       confirmVariant: "destructive" as const,
       destructive: true,
       onConfirm: () => {
@@ -863,20 +863,20 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
 
   const handleDeleteWorkflow = () => {
     openOverlay(ConfirmOverlay, {
-      title: "Delete Workflow",
-      message: `Are you sure you want to delete "${workflowName}"? This will permanently delete the workflow. This cannot be undone.`,
-      confirmLabel: "Delete Workflow",
+      title: "Excluir fluxo",
+      message: `Tem certeza que deseja excluir "${workflowName}"? Isso vai remover o fluxo permanentemente. Esta ação nao pode ser desfeita.`,
+      confirmLabel: "Excluir fluxo",
       confirmVariant: "destructive" as const,
       destructive: true,
       onConfirm: async () => {
         if (!currentWorkflowId) return;
         try {
           await api.workflow.delete(currentWorkflowId);
-          toast.success("Workflow deleted successfully");
+          toast.success("Fluxo excluido com sucesso");
           window.location.href = "/";
         } catch (error) {
-          console.error("Failed to delete workflow:", error);
-          toast.error("Failed to delete workflow. Please try again.");
+          console.error("Falha ao excluir o fluxo:", error);
+          toast.error("Falha ao excluir o fluxo. Tente novamente.");
         }
       },
     });
@@ -884,22 +884,22 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
 
   const handleDownload = async () => {
     if (!currentWorkflowId) {
-      toast.error("Please save the workflow before downloading");
+      toast.error("Salve o fluxo antes de baixar");
       return;
     }
 
     setIsDownloading(true);
-    toast.info("Preparing workflow files for download...");
+    toast.info("Preparando arquivos do fluxo para download...");
 
     try {
       const result = await api.workflow.download(currentWorkflowId);
 
       if (!result.success) {
-        throw new Error(result.error || "Failed to prepare download");
+        throw new Error(result.error || "Falha ao preparar download");
       }
 
       if (!result.files) {
-        throw new Error("No files to download");
+        throw new Error("Nenhum arquivo para baixar");
       }
 
       // Import JSZip dynamically
@@ -918,16 +918,16 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-workflow.zip`;
+      a.download = `${workflowName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-fluxo.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success("Workflow downloaded successfully!");
+      toast.success("Fluxo baixado com sucesso!");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to download workflow"
+        error instanceof Error ? error.message : "Falha ao baixar o fluxo"
       );
     } finally {
       setIsDownloading(false);
@@ -939,7 +939,7 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
       const workflows = await api.workflow.getAll();
       setAllWorkflows(workflows);
     } catch (error) {
-      console.error("Failed to load workflows:", error);
+      console.error("Falha ao carregar fluxos:", error);
     }
   };
 
@@ -948,7 +948,7 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setIsPublishing(true);
     try {
       await api.workflow.publish(currentWorkflowId);
-      toast.success("Workflow publicado");
+      toast.success("Fluxo publicado");
       const data = await api.workflow.getVersions(currentWorkflowId);
       setVersions(
         data.map((version) => ({
@@ -969,7 +969,7 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setIsRollingBack(true);
     try {
       await api.workflow.rollback(currentWorkflowId, versionId);
-      toast.success("Rollback aplicado");
+      toast.success("Reversão aplicada");
       const data = await api.workflow.getVersions(currentWorkflowId);
       setVersions(
         data.map((version) => ({
@@ -999,10 +999,10 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
               visibility: "public",
             });
             setWorkflowVisibility("public");
-            toast.success("Workflow is now public");
+            toast.success("Fluxo agora e publico");
           } catch (error) {
-            console.error("Failed to update visibility:", error);
-            toast.error("Failed to update visibility. Please try again.");
+            console.error("Falha ao atualizar visibilidade:", error);
+            toast.error("Falha ao atualizar visibilidade. Tente novamente.");
           }
         },
       });
@@ -1015,10 +1015,10 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
         visibility: newVisibility,
       });
       setWorkflowVisibility(newVisibility);
-      toast.success("Workflow is now private");
+      toast.success("Fluxo agora e privado");
     } catch (error) {
-      console.error("Failed to update visibility:", error);
-      toast.error("Failed to update visibility. Please try again.");
+      console.error("Falha ao atualizar visibilidade:", error);
+      toast.error("Falha ao atualizar visibilidade. Tente novamente.");
     }
   };
 
@@ -1037,11 +1037,11 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
       }
 
       const newWorkflow = await api.workflow.duplicate(currentWorkflowId);
-      toast.success("Workflow duplicated successfully");
+      toast.success("Fluxo duplicado com sucesso");
       router.push(`/builder/${newWorkflow.id}`);
     } catch (error) {
-      console.error("Failed to duplicate workflow:", error);
-      toast.error("Failed to duplicate workflow. Please try again.");
+      console.error("Falha ao duplicar o fluxo:", error);
+      toast.error("Falha ao duplicar o fluxo. Tente novamente.");
     } finally {
       setIsDuplicating(false);
     }
@@ -1099,12 +1099,12 @@ function ToolbarActions({
 
   const handleDeleteConfirm = () => {
     const isNode = Boolean(selectedNodeId);
-    const itemType = isNode ? "Node" : "Connection";
+    const itemType = isNode ? "etapa" : "conexão";
 
     push(ConfirmOverlay, {
-      title: `Delete ${itemType}`,
-      message: `Are you sure you want to delete this ${itemType.toLowerCase()}? This action cannot be undone.`,
-      confirmLabel: "Delete",
+      title: `Excluir ${itemType}`,
+      message: `Tem certeza que deseja excluir esta ${itemType}? Essa ação nao pode ser desfeita.`,
+      confirmLabel: "Excluir",
       confirmVariant: "destructive" as const,
       onConfirm: () => {
         if (selectedNodeId) {
@@ -1190,7 +1190,7 @@ function ToolbarActions({
           disabled={state.isGenerating}
           onClick={handleAddStep}
           size="icon"
-          title="Add Step"
+          title="Adicionar etapa"
           variant="secondary"
         >
           <Plus className="size-4" />
@@ -1203,7 +1203,7 @@ function ToolbarActions({
           className="border hover:bg-black/5 dark:hover:bg-white/5"
           onClick={() => openOverlay(ConfigurationOverlay, {})}
           size="icon"
-          title="Configuration"
+          title="Configuração"
           variant="secondary"
         >
           <Settings2 className="size-4" />
@@ -1214,7 +1214,7 @@ function ToolbarActions({
             className="border hover:bg-black/5 dark:hover:bg-white/5"
             onClick={handleDeleteConfirm}
             size="icon"
-            title="Delete"
+            title="Excluir"
             variant="secondary"
           >
             <Trash2 className="size-4" />
@@ -1229,7 +1229,7 @@ function ToolbarActions({
           disabled={state.isGenerating}
           onClick={handleAddStep}
           size="icon"
-          title="Add Step"
+          title="Adicionar etapa"
           variant="secondary"
         >
           <Plus className="size-4" />
@@ -1243,7 +1243,7 @@ function ToolbarActions({
           disabled={!state.canUndo || state.isGenerating}
           onClick={() => state.undo()}
           size="icon"
-          title="Undo"
+          title="Desfazer"
           variant="secondary"
         >
           <Undo2 className="size-4" />
@@ -1253,7 +1253,7 @@ function ToolbarActions({
           disabled={!state.canRedo || state.isGenerating}
           onClick={() => state.redo()}
           size="icon"
-          title="Redo"
+          title="Refazer"
           variant="secondary"
         >
           <Redo2 className="size-4" />
@@ -1267,7 +1267,7 @@ function ToolbarActions({
           disabled={!state.canUndo || state.isGenerating}
           onClick={() => state.undo()}
           size="icon"
-          title="Undo"
+          title="Desfazer"
           variant="secondary"
         >
           <Undo2 className="size-4" />
@@ -1277,7 +1277,7 @@ function ToolbarActions({
           disabled={!state.canRedo || state.isGenerating}
           onClick={() => state.redo()}
           size="icon"
-          title="Redo"
+          title="Refazer"
           variant="secondary"
         >
           <Redo2 className="size-4" />
@@ -1342,7 +1342,7 @@ function SaveButton({
       }
       onClick={handleSave}
       size="icon"
-      title={state.isSaving ? "Saving..." : "Save workflow"}
+      title={state.isSaving ? "Salvando..." : "Salvar fluxo"}
       variant="secondary"
     >
       {state.isSaving ? (
@@ -1387,8 +1387,8 @@ function DownloadButton({
       size="icon"
       title={
         state.isDownloading
-          ? "Preparing download..."
-          : "Export workflow as code"
+          ? "Preparando download..."
+          : "Exportar fluxo como codigo"
       }
       variant="secondary"
     >
@@ -1416,7 +1416,7 @@ function PublishButton({
       disabled={disabled || isPublishing}
       onClick={onPublish}
       size="icon"
-      title="Publicar workflow"
+      title="Publicar fluxo"
       variant="secondary"
     >
       {isPublishing ? (
@@ -1487,7 +1487,7 @@ function VisibilityButton({
           className="border hover:bg-black/5 dark:hover:bg-white/5"
           disabled={!state.currentWorkflowId || state.isGenerating}
           size="icon"
-          title={isPublic ? "Public workflow" : "Private workflow"}
+          title={isPublic ? "Fluxo publico" : "Fluxo privado"}
           variant="secondary"
         >
           {isPublic ? (
@@ -1503,7 +1503,7 @@ function VisibilityButton({
           onClick={() => actions.handleToggleVisibility("private")}
         >
           <Lock className="size-4" />
-          Private
+          Privado
           {!isPublic && <Check className="ml-auto size-4" />}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -1511,7 +1511,7 @@ function VisibilityButton({
           onClick={() => actions.handleToggleVisibility("public")}
         >
           <Globe className="size-4" />
-          Public
+          Publico
           {isPublic && <Check className="ml-auto size-4" />}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -1535,7 +1535,7 @@ function RunButtonGroup({
       }
       onClick={() => actions.handleExecute()}
       size="icon"
-      title="Run Workflow"
+      title="Executar fluxo"
       variant="secondary"
     >
       {state.isExecuting ? (
@@ -1561,7 +1561,7 @@ function DuplicateButton({
       disabled={isDuplicating}
       onClick={onDuplicate}
       size="sm"
-      title="Duplicate to your workflows"
+      title="Duplicar para seus fluxos"
       variant="secondary"
     >
       {isDuplicating ? (
@@ -1569,7 +1569,7 @@ function DuplicateButton({
       ) : (
         <Copy className="mr-2 size-4" />
       )}
-      Duplicate
+      Duplicar
     </Button>
   );
 }
@@ -1595,8 +1595,8 @@ function WorkflowMenuComponent({
                 state.workflowName
               ) : (
                 <>
-                  <span className="sm:hidden">New</span>
-                  <span className="hidden sm:inline">New Workflow</span>
+                  <span className="sm:hidden">Novo</span>
+                  <span className="hidden sm:inline">Novo fluxo</span>
                 </>
               )}
             </p>
@@ -1608,13 +1608,13 @@ function WorkflowMenuComponent({
               className="flex items-center justify-between"
             >
               <a href="/">
-                New Workflow{" "}
+                Novo fluxo{" "}
                 {!workflowId && <Check className="size-4 shrink-0" />}
               </a>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {state.allWorkflows.length === 0 ? (
-              <DropdownMenuItem disabled>No workflows found</DropdownMenuItem>
+              <DropdownMenuItem disabled>Nenhum fluxo encontrado</DropdownMenuItem>
             ) : (
               state.allWorkflows
                 .filter((w) => w.name !== "__current__")
@@ -1638,7 +1638,7 @@ function WorkflowMenuComponent({
       </div>
       {workflowId && !state.isOwner && (
         <span className="text-muted-foreground text-xs uppercase lg:hidden">
-          Read-only
+          Somente leitura
         </span>
       )}
     </div>
@@ -1663,7 +1663,7 @@ export const WorkflowToolbar = ({ workflowId }: WorkflowToolbarProps) => {
           />
           {workflowId && !state.isOwner && (
             <span className="hidden text-muted-foreground text-xs uppercase lg:inline">
-              Read-only
+              Somente leitura
             </span>
           )}
         </div>

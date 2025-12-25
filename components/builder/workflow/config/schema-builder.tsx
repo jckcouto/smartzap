@@ -97,13 +97,13 @@ export function SchemaBuilder({
                   className="ml-1"
                   htmlFor={`field-name-${level}-${index}`}
                 >
-                  Property Name
+                  Nome da propriedade
                 </Label>
                 <Input
                   disabled={disabled}
                   id={`field-name-${level}-${index}`}
                   onChange={(e) => updateField(index, { name: e.target.value })}
-                  placeholder="propertyName"
+                  placeholder="nomeDaPropriedade"
                   value={field.name}
                 />
               </div>
@@ -112,7 +112,7 @@ export function SchemaBuilder({
                   className="ml-1"
                   htmlFor={`field-type-${level}-${index}`}
                 >
-                  Type
+                  Tipo
                 </Label>
                 <Select
                   disabled={disabled}
@@ -130,11 +130,11 @@ export function SchemaBuilder({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="string">String</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="boolean">Boolean</SelectItem>
+                    <SelectItem value="string">Texto</SelectItem>
+                    <SelectItem value="number">Numero</SelectItem>
+                    <SelectItem value="boolean">Booleano</SelectItem>
                     <SelectItem value="array">Array</SelectItem>
-                    <SelectItem value="object">Object</SelectItem>
+                    <SelectItem value="object">Objeto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -156,7 +156,7 @@ export function SchemaBuilder({
                   className="ml-1"
                   htmlFor={`field-item-type-${level}-${index}`}
                 >
-                  Array Item Type
+                  Tipo de item do array
                 </Label>
                 <Select
                   disabled={disabled}
@@ -174,10 +174,10 @@ export function SchemaBuilder({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="string">String</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="boolean">Boolean</SelectItem>
-                    <SelectItem value="object">Object</SelectItem>
+                    <SelectItem value="string">Texto</SelectItem>
+                    <SelectItem value="number">Numero</SelectItem>
+                    <SelectItem value="boolean">Booleano</SelectItem>
+                    <SelectItem value="object">Objeto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -185,7 +185,7 @@ export function SchemaBuilder({
 
             {field.type === "object" && (
               <div className="mt-2">
-                <Label className="mb-2 block">Object Properties</Label>
+                <Label className="mb-2 block">Propriedades do objeto</Label>
                 <SchemaBuilder
                   disabled={disabled}
                   level={level + 1}
@@ -197,7 +197,9 @@ export function SchemaBuilder({
 
             {field.type === "array" && field.itemType === "object" && (
               <div className="mt-2">
-                <Label className="mb-2 block">Array Item Properties</Label>
+                <Label className="mb-2 block">
+                  Propriedades do item do array
+                </Label>
                 <SchemaBuilder
                   disabled={disabled}
                   level={level + 1}
@@ -209,7 +211,7 @@ export function SchemaBuilder({
 
             <div className="space-y-2">
               <Label className="ml-1" htmlFor={`field-desc-${level}-${index}`}>
-                Description (optional)
+                Descrição (opcional)
               </Label>
               <Input
                 disabled={disabled}
@@ -217,7 +219,7 @@ export function SchemaBuilder({
                 onChange={(e) =>
                   updateField(index, { description: e.target.value })
                 }
-                placeholder="Description for the AI"
+                placeholder="Descrição para a IA"
                 value={field.description || ""}
               />
             </div>
@@ -233,7 +235,7 @@ export function SchemaBuilder({
         variant="outline"
       >
         <Plus className="size-4" />
-        Add Property
+        Adicionar propriedade
       </Button>
     </div>
   );

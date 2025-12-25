@@ -138,7 +138,7 @@ export function AiGatewayConsentOverlay({
     ...(onManualEntry
       ? [
           {
-            label: "Enter manually",
+            label: "Inserir manualmente",
             variant: "ghost" as const,
             onClick: handleManualEntry,
             disabled: loading,
@@ -146,13 +146,13 @@ export function AiGatewayConsentOverlay({
         ]
       : []),
     {
-      label: "Cancel",
+      label: "Cancelar",
       variant: "outline" as const,
       onClick: handleDecline,
       disabled: loading,
     },
     {
-      label: loading ? "Setting up..." : "Agree & Connect",
+      label: loading ? "Configurando..." : "Concordar e conectar",
       variant: "default" as const,
       onClick: handleConsent,
       disabled:
@@ -164,9 +164,9 @@ export function AiGatewayConsentOverlay({
   return (
     <Overlay
       actions={actions}
-      description="Connect your Vercel account to use your own AI Gateway balance"
+      description="Conecte sua conta Vercel para usar seu saldo do AI Gateway"
       overlayId={overlayId}
-      title="Use Your AI Gateway Credits"
+      title="Usar creditos do AI Gateway"
     >
       <div className="space-y-4">
         <div className="flex items-start gap-3">
@@ -174,17 +174,17 @@ export function AiGatewayConsentOverlay({
             <Sparkles className="size-5 text-primary" />
           </div>
           <p className="pt-2 text-muted-foreground text-sm">
-            This will create an API key on your Vercel account that uses your AI
-            Gateway credits for AI operations in workflows.
+            Isso criara uma chave de API na sua conta Vercel para usar creditos
+            do AI Gateway em operações de IA nos fluxos.
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="team-select">Vercel Team</Label>
+          <Label htmlFor="team-select">Time da Vercel</Label>
           {teamsLoading && teams.length === 0 ? (
             <div className="flex h-10 items-center gap-2 rounded-md border px-3 text-muted-foreground text-sm">
               <Loader2 className="size-4 animate-spin" />
-              Loading teams...
+              Carregando times...
             </div>
           ) : (
             <Select
@@ -193,7 +193,7 @@ export function AiGatewayConsentOverlay({
               value={selectedTeamId}
             >
               <SelectTrigger id="team-select">
-                <SelectValue placeholder="Select a team" />
+                <SelectValue placeholder="Selecione um time" />
               </SelectTrigger>
               <SelectContent>
                 {teams.map((team, index) => (
@@ -214,7 +214,7 @@ export function AiGatewayConsentOverlay({
                         <span>{team.name}</span>
                         {team.isPersonal && (
                           <span className="text-muted-foreground text-xs">
-                            (Personal)
+                            (Pessoal)
                           </span>
                         )}
                       </div>

@@ -10,6 +10,11 @@ import { randomBytes } from 'node:crypto'
 
 export const runtime = 'nodejs'
 
+const isProd = process.env.NODE_ENV === 'production'
+const log = (...args: any[]) => {
+  if (!isProd) console.log(...args)
+}
+
 function generateKey(prefix: string): string {
   // 32 bytes ~= 43 chars base64url
   return `${prefix}${randomBytes(32).toString('base64url')}`
@@ -95,11 +100,11 @@ export interface SetupEnvVars {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('=== SAVE-ENV START ===')
+  log('=== SAVE-ENV START ===')
 
   try {
     const body = await request.json()
-    console.log('Request body keys:', Object.keys(body))
+    log('Request body keys:', Object.keys(body))
 
     const { token, projectId, teamId, envVars } = body as {
       token: string
@@ -108,13 +113,13 @@ export async function POST(request: NextRequest) {
       envVars: SetupEnvVars
     }
 
-    console.log('Token present:', !!token)
-    console.log('ProjectId:', projectId)
-    console.log('TeamId:', teamId)
-    console.log('EnvVars keys:', Object.keys(envVars || {}))
+    log('Token present:', !!token)
+    log('ProjectId:', projectId)
+    log('TeamId:', teamId)
+    log('EnvVars keys:', Object.keys(envVars || {}))
 
     if (!token || !projectId || !envVars) {
-      console.log('Missing data - token:', !!token, 'projectId:', !!projectId, 'envVars:', !!envVars)
+      log('Missing data - token:', !!token, 'projectId:', !!projectId, 'envVars:', !!envVars)
       return NextResponse.json(
         { error: 'Dados incompletos' },
         { status: 400 }
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
     ]
 
     const missingFields = requiredFields.filter(field => !envVars[field])
-    console.log('Missing fields:', missingFields)
+    log('Missing fields:', missingFields)
 
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -159,7 +164,7 @@ export async function POST(request: NextRequest) {
     // Garante chaves internas (reconciliação, rotas protegidas, etc.)
     const { generated } = ensureInternalKeys(envVars as any)
     if (generated.length > 0) {
-      console.log('[save-env] Generated internal keys:', generated)
+      log('[save-env] Generated internal keys:', generated)
     }
 
     // Prepare env vars array
@@ -170,16 +175,16 @@ export async function POST(request: NextRequest) {
     // Add the Vercel token itself for future use
     envVarsToSave.push({ key: 'VERCEL_TOKEN', value: token })
 
-    console.log('Env vars to save count:', envVarsToSave.length)
-    console.log('Env var keys to save:', envVarsToSave.map(e => e.key))
+    log('Env vars to save count:', envVarsToSave.length)
+    log('Env var keys to save:', envVarsToSave.map(e => e.key))
 
     // Save all env vars
-    console.log('Calling setEnvVars...')
+    log('Calling setEnvVars...')
     const saveResult = await setEnvVars(token, projectId, envVarsToSave, teamId)
-    console.log('setEnvVars result:', JSON.stringify(saveResult, null, 2))
+    log('setEnvVars result:', JSON.stringify(saveResult, null, 2))
 
     if (!saveResult.success) {
-      console.log('Save failed:', saveResult.error)
+      log('Save failed:', saveResult.error)
       return NextResponse.json(
         { error: saveResult.error || 'Erro ao salvar variáveis' },
         { status: 500 }
@@ -187,13 +192,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Trigger redeploy
-    console.log('Calling redeployLatest...')
+    log('Calling redeployLatest...')
     const redeployResult = await redeployLatest(token, projectId, teamId)
 
-    console.log('Redeploy result:', JSON.stringify(redeployResult, null, 2))
+    log('Redeploy result:', JSON.stringify(redeployResult, null, 2))
 
     if (!redeployResult.success || !redeployResult.data) {
-      console.log('Redeploy failed or no data:', redeployResult.error)
+      log('Redeploy failed or no data:', redeployResult.error)
       return NextResponse.json(
         {
           success: true,
@@ -204,7 +209,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Deployment data:', JSON.stringify(redeployResult.data, null, 2))
+    log('Deployment data:', JSON.stringify(redeployResult.data, null, 2))
 
     const response = {
       success: true,
@@ -216,7 +221,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('=== SAVE-ENV SUCCESS ===', JSON.stringify(response, null, 2))
+    log('=== SAVE-ENV SUCCESS ===', JSON.stringify(response, null, 2))
     return NextResponse.json(response)
 
   } catch (error) {

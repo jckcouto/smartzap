@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { parsePhoneNumber } from 'libphonenumber-js'
 import { supabase } from '@/lib/supabase'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -26,8 +27,11 @@ const resolveCountry = (phone: string): string | null => {
  * GET /api/contacts/country-codes
  * Lista DDI (ISO) existentes nos contatos.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = await requireSessionOrApiKey(request)
+    if (auth) return auth
+
     const { data, error } = await supabase.from('contacts').select('phone')
     if (error) throw error
 

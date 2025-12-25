@@ -28,7 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/builder/ui/tooltip";
 import { useIsTouch } from "@/hooks/use-touch";
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 import { getAllActions } from "@/lib/builder/plugins";
 
 type ActionType = {
@@ -43,39 +43,39 @@ type ActionType = {
 const SYSTEM_ACTIONS: ActionType[] = [
   {
     id: "HTTP Request",
-    label: "HTTP Request",
-    description: "Make an HTTP request to any API",
-    category: "System",
+    label: "Requisicao HTTP",
+    description: "Fazer requisicao HTTP para qualquer API",
+    category: "Sistema",
   },
   {
     id: "Database Query",
-    label: "Database Query",
-    description: "Query your database",
-    category: "System",
+    label: "Consulta ao banco",
+    description: "Consultar seu banco de dados",
+    category: "Sistema",
   },
   {
     id: "Condition",
-    label: "Condition",
-    description: "Branch based on a condition",
-    category: "System",
+    label: "Condicao",
+    description: "Desviar fluxo com base em condicao",
+    category: "Sistema",
   },
   {
     id: "Delay",
     label: "Delay",
-    description: "Wait for a specified time",
-    category: "System",
+    description: "Aguardar por um tempo",
+    category: "Sistema",
   },
   {
     id: "Set Variable",
-    label: "Set Variable",
-    description: "Store a value for later steps",
-    category: "System",
+    label: "Definir variável",
+    description: "Guardar um valor para etapas futuras",
+    category: "Sistema",
   },
   {
     id: "Get Variable",
-    label: "Get Variable",
-    description: "Read a stored variable",
-    category: "System",
+    label: "Obter variável",
+    description: "Ler uma variável armazenada",
+    category: "Sistema",
   },
 ];
 
@@ -118,8 +118,8 @@ function GroupIcon({
       />
     );
   }
-  // For System category
-  if (group.category === "System") {
+  // For Sistema category
+  if (group.category === "Sistema") {
     return <Settings className="size-4" />;
   }
   return <Zap className="size-4" />;
@@ -137,7 +137,7 @@ function ActionIcon({
       <IntegrationIcon className={className} integration={action.integration} />
     );
   }
-  if (action.category === "System") {
+  if (action.category === "Sistema") {
     return <Settings className={cn(className, "text-muted-foreground")} />;
   }
   return <Zap className={cn(className, "text-muted-foreground")} />;
@@ -248,10 +248,10 @@ export function ActionGrid({
       groups[category].push(action);
     }
 
-    // Sort categories: System first, then alphabetically
+    // Sort categories: Sistema first, then alphabetically
     const sortedCategories = Object.keys(groups).sort((a, b) => {
-      if (a === "System") return -1;
-      if (b === "System") return 1;
+      if (a === "Sistema") return -1;
+      if (b === "Sistema") return 1;
       return a.localeCompare(b);
     });
 
@@ -280,7 +280,7 @@ export function ActionGrid({
             disabled={disabled}
             id="action-filter"
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search actions..."
+            placeholder="Buscar ações..."
             ref={inputRef}
             value={filter}
           />
@@ -339,7 +339,7 @@ export function ActionGrid({
       >
         {filteredActions.length === 0 && (
           <p className="py-4 text-center text-muted-foreground text-sm">
-            No actions found
+            Nenhuma ação encontrada
           </p>
         )}
         {filteredActions.length > 0 && visibleGroups.length === 0 && (

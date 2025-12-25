@@ -60,7 +60,14 @@ function getTriggerLabel(workflow: WorkflowItem): string {
   const triggerNode = workflow.nodes.find((node) => node?.data?.type === "trigger");
   const triggerType = triggerNode?.data?.config?.triggerType;
   if (typeof triggerType === "string" && triggerType.trim()) {
-    return triggerType.trim();
+    const trimmed = triggerType.trim();
+    if (trimmed === "Keywords") return "Palavras-chave";
+    if (trimmed === "Webhook") return "Webhook";
+    if (trimmed === "Manual") return "Manual";
+    return trimmed;
+  }
+  if (triggerType === "Keywords") {
+    return "Palavras-chave";
   }
   return "Manual";
 }
@@ -93,7 +100,7 @@ export default function WorkflowsPage() {
     queryKey: ["builder-default-workflow"],
     queryFn: async () => {
       const response = await fetch("/api/settings/workflow-builder");
-      if (!response.ok) throw new Error("Failed to fetch default workflow");
+      if (!response.ok) throw new Error("Falha ao buscar fluxo padrao");
       return response.json() as Promise<{ defaultWorkflowId: string }>;
     },
     staleTime: 5000,
@@ -129,13 +136,13 @@ export default function WorkflowsPage() {
   const handleCreate = async () => {
     const now = new Date();
     const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
-    const name = `Workflow ${stamp}`;
+    const name = `Fluxo ${stamp}`;
     try {
       const created = await api.workflow.create({ name, nodes: [], edges: [] });
       router.push(`/builder/${encodeURIComponent(created.id)}`);
     } catch (error) {
       console.error("Failed to create workflow:", error);
-      toast.error("Falha ao criar workflow");
+      toast.error("Falha ao criar fluxo");
     }
   };
 
@@ -147,11 +154,11 @@ export default function WorkflowsPage() {
     setRollingBackId(versionId);
     try {
       await api.workflow.rollback(selectedWorkflowId, versionId);
-      toast.success("Rollback aplicado");
+      toast.success("Reversao aplicada");
       await Promise.all([versionsQuery.refetch(), refetch()]);
     } catch (error) {
       console.error("Failed to rollback workflow:", error);
-      toast.error("Falha no rollback");
+      toast.error("Falha ao reverter");
     } finally {
       setIsRollingBack(false);
       setRollingBackId(null);
@@ -163,7 +170,7 @@ export default function WorkflowsPage() {
     setPublishingId(workflowId);
     try {
       await api.workflow.publish(workflowId);
-      toast.success("Workflow publicado");
+      toast.success("Fluxo publicado");
       await Promise.all([refetch(), versionsQuery.refetch()]);
     } catch (error) {
       console.error("Failed to publish workflow:", error);
@@ -179,11 +186,11 @@ export default function WorkflowsPage() {
     setDuplicatingId(workflowId);
     try {
       const created = await api.workflow.duplicate(workflowId);
-      toast.success("Workflow duplicado");
+      toast.success("Fluxo duplicado");
       router.push(`/builder/${encodeURIComponent(created.id)}`);
     } catch (error) {
       console.error("Failed to duplicate workflow:", error);
-      toast.error("Falha ao duplicar workflow");
+      toast.error("Falha ao duplicar fluxo");
     } finally {
       setIsDuplicating(false);
       setDuplicatingId(null);
@@ -192,7 +199,7 @@ export default function WorkflowsPage() {
 
   const handleDelete = async (workflowId: string) => {
     const confirmed = window.confirm(
-      "Tem certeza que deseja excluir este workflow? Essa acao nao pode ser desfeita."
+      "Tem certeza que deseja excluir este fluxo? Essa acao nao pode ser desfeita."
     );
     if (!confirmed) return;
     try {
@@ -205,11 +212,11 @@ export default function WorkflowsPage() {
         });
         setDefaultWorkflowId(null);
       }
-      toast.success("Workflow excluido");
+      toast.success("Fluxo excluido");
       await Promise.all([refetch(), defaultWorkflowQuery.refetch()]);
     } catch (error) {
       console.error("Failed to delete workflow:", error);
-      toast.error("Falha ao excluir workflow");
+      toast.error("Falha ao excluir fluxo");
     }
   };
   const handleSetDefault = async (workflowId: string) => {
@@ -222,14 +229,14 @@ export default function WorkflowsPage() {
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error?.error || "Failed to set default workflow");
+        throw new Error(error?.error || "Falha ao definir fluxo padrao");
       }
       setDefaultWorkflowId(workflowId);
-      toast.success("Workflow padrão atualizado");
+      toast.success("Fluxo padrao atualizado");
       await defaultWorkflowQuery.refetch();
     } catch (error) {
       console.error("Failed to set default workflow:", error);
-      toast.error("Falha ao definir workflow padrão");
+      toast.error("Falha ao definir fluxo padrao");
     } finally {
       setIsSettingDefault(false);
     }
@@ -239,9 +246,9 @@ export default function WorkflowsPage() {
     <Page>
       <PageHeader>
         <div>
-          <PageTitle>Workflow</PageTitle>
+          <PageTitle>Fluxos</PageTitle>
           <PageDescription>
-            Crie e gerencie os workflows do builder.
+            Crie e gerencie os fluxos do builder.
           </PageDescription>
         </div>
         <PageActions>
@@ -259,7 +266,7 @@ export default function WorkflowsPage() {
             className="bg-emerald-500 text-black hover:bg-emerald-400 transition-colors"
           >
             <Plus className="h-4 w-4 text-emerald-900" />
-            Novo workflow
+            Novo fluxo
           </Button>
         </PageActions>
       </PageHeader>
@@ -268,13 +275,13 @@ export default function WorkflowsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <WorkflowIcon className="h-4 w-4 text-emerald-400" />
-            {workflows.length} workflows encontrados
+            {workflows.length} fluxos encontrados
           </div>
           <div className="flex w-full max-w-sm items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar workflow..."
+              placeholder="Buscar fluxo..."
               className="h-7 border-0 bg-transparent text-sm text-white placeholder:text-gray-500 focus-visible:ring-0"
             />
           </div>
@@ -283,13 +290,13 @@ export default function WorkflowsPage() {
         <div className="mt-6 space-y-3">
           {isLoading && (
             <div className="rounded-xl border border-white/10 bg-black/40 p-6 text-sm text-gray-400">
-              Carregando workflows...
+              Carregando fluxos...
             </div>
           )}
 
           {!isLoading && workflows.length === 0 && (
             <div className="rounded-xl border border-dashed border-white/10 bg-black/40 p-8 text-center text-gray-400">
-              Nenhum workflow criado ainda.
+              Nenhum fluxo criado ainda.
             </div>
           )}
 
@@ -329,7 +336,7 @@ export default function WorkflowsPage() {
                   </div>
                   {workflow.id === defaultWorkflowId && (
                     <div className="text-xs text-emerald-300/80">
-                      Workflow padrão
+                      Fluxo padrao
                     </div>
                     )}
                     {workflow.lastPublishedVersion && (
@@ -348,7 +355,7 @@ export default function WorkflowsPage() {
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
                     <span>
-                      Runs:{" "}
+                      Execucoes:{" "}
                       {metricsQuery.data?.byWorkflow?.[workflow.id]?.runs ?? 0}
                     </span>
                     <span>
@@ -391,7 +398,7 @@ export default function WorkflowsPage() {
                           }}
                           disabled={isSettingDefault}
                         >
-                          Marcar como padrão
+                          Marcar como padrao
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
@@ -411,7 +418,7 @@ export default function WorkflowsPage() {
                           router.push(`/workflows?workflowId=${encodeURIComponent(workflow.id)}`);
                         }}
                       >
-                        Versões
+                        Versoes
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-red-400 focus:text-red-400"
@@ -434,7 +441,7 @@ export default function WorkflowsPage() {
           <div className="mt-6 rounded-xl border border-white/10 bg-black/40 p-4">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-white">
-                Versões do workflow
+                Versoes do fluxo
               </div>
               <Button
                 variant="ghost"
@@ -481,7 +488,7 @@ export default function WorkflowsPage() {
                     >
                       {rollingBackId === version.id
                         ? "Aplicando..."
-                        : "Rollback"}
+                        : "Reverter"}
                     </Button>
                   </div>
                 ))}

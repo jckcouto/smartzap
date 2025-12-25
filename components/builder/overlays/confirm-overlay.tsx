@@ -47,10 +47,10 @@ type ConfirmOverlayProps = {
  */
 export function ConfirmOverlay({
   overlayId,
-  title = "Confirm",
+  title = "Confirmar",
   message,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel = "Confirmar",
+  cancelLabel = "Cancelar",
   confirmVariant = "default",
   destructive = false,
   onConfirm,

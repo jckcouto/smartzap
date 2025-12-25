@@ -102,7 +102,7 @@ export function TimezoneSelect({ value, onValueChange, disabled, id }: TimezoneS
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger id={id}>
-        <SelectValue placeholder="Select timezone" />
+        <SelectValue placeholder="Selecione o fuso horario" />
       </SelectTrigger>
       <SelectContent>
         {TIMEZONES.map((group) => (

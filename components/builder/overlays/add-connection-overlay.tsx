@@ -29,10 +29,10 @@ import { useOverlay } from "./overlay-provider";
 // System integrations that don't have plugins
 const SYSTEM_INTEGRATION_TYPES: IntegrationType[] = ["database"];
 const SYSTEM_INTEGRATION_LABELS: Record<string, string> = {
-  database: "Database",
+  database: "Banco de dados",
 };
 const SYSTEM_INTEGRATION_DESCRIPTIONS: Record<string, string> = {
-  database: "Connect to PostgreSQL databases",
+  database: "Conectar a bancos PostgreSQL",
 };
 
 // Get all integration types (plugins + system)
@@ -131,9 +131,9 @@ export function AddConnectionOverlay({
   };
 
   return (
-    <Overlay overlayId={overlayId} title="Add Connection">
+    <Overlay overlayId={overlayId} title="Adicionar conexão">
       <p className="-mt-2 mb-4 text-muted-foreground text-sm">
-        Select a service to connect
+        Selecione um servico para conectar
       </p>
 
       <div className="space-y-3">
@@ -143,14 +143,14 @@ export function AddConnectionOverlay({
             autoFocus={!isMobile}
             className="pl-9"
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search services..."
+            placeholder="Buscar servicos..."
             value={searchQuery}
           />
         </div>
         <div className="max-h-[300px] space-y-1 overflow-y-auto">
           {filteredTypes.length === 0 ? (
             <p className="py-4 text-center text-muted-foreground text-sm">
-              No services found
+              Nenhum servico encontrado
             </p>
           ) : (
             filteredTypes.map((type) => {
@@ -274,12 +274,12 @@ export function ConfigureConnectionOverlay({
         type,
         config,
       });
-      toast.success("Connection created");
+      toast.success("Conexão criada");
       onSuccess?.(newIntegration.id);
       closeAll();
     } catch (error) {
       console.error("Failed to save integration:", error);
-      toast.error("Failed to save connection");
+      toast.error("Falha ao salvar conexão");
     } finally {
       setSaving(false);
     }
@@ -288,7 +288,7 @@ export function ConfigureConnectionOverlay({
   const handleSave = async () => {
     const hasConfig = Object.values(config).some((v) => v && v.length > 0);
     if (!hasConfig && !allowEmptyConfig) {
-      toast.error("Please enter credentials");
+      toast.error("Informe as credenciais");
       return;
     }
 
@@ -307,9 +307,9 @@ export function ConfigureConnectionOverlay({
       if (result.status === "error") {
         // Show confirmation to save anyway
         push(ConfirmOverlay, {
-          title: "Connection Test Failed",
-          message: `The test failed: ${result.message}\n\nDo you want to save anyway?`,
-          confirmLabel: "Save Anyway",
+          title: "Teste de conexão falhou",
+          message: `O teste falhou: ${result.message}\n\nDeseja salvar mesmo assim?`,
+          confirmLabel: "Salvar mesmo assim",
           onConfirm: async () => {
             await doSave();
           },
@@ -321,11 +321,13 @@ export function ConfigureConnectionOverlay({
       await doSave();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to test connection";
+        error instanceof Error
+          ? error.message
+          : "Falha ao testar conexão";
       push(ConfirmOverlay, {
-        title: "Connection Test Failed",
-        message: `${message}\n\nDo you want to save anyway?`,
-        confirmLabel: "Save Anyway",
+        title: "Teste de conexão falhou",
+        message: `${message}\n\nDeseja salvar mesmo assim?`,
+        confirmLabel: "Salvar mesmo assim",
         onConfirm: async () => {
           await doSave();
         },
@@ -337,12 +339,12 @@ export function ConfigureConnectionOverlay({
   const handleTest = async () => {
     const hasConfig = Object.values(config).some((v) => v && v.length > 0);
     if (!hasConfig && !allowEmptyConfig) {
-      toast.error("Please enter credentials first");
+      toast.error("Informe as credenciais primeiro");
       return;
     }
 
     if (!hasConfig && allowEmptyConfig) {
-      toast.success("Using WhatsApp credentials from Settings");
+      toast.success("Usando credenciais do WhatsApp em Configurações");
       return;
     }
 
@@ -352,13 +354,15 @@ export function ConfigureConnectionOverlay({
       const result = await api.integration.testCredentials({ type, config });
       setTestResult(result);
       if (result.status === "success") {
-        toast.success(result.message || "Connection successful");
+        toast.success(result.message || "Conexão realizada");
       } else {
-        toast.error(result.message || "Connection failed");
+        toast.error(result.message || "Falha na conexão");
       }
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Connection test failed";
+        error instanceof Error
+          ? error.message
+          : "Falha no teste de conexão";
       setTestResult({ status: "error", message });
       toast.error(message);
     } finally {
@@ -377,8 +381,8 @@ export function ConfigureConnectionOverlay({
         <SecretField
           configKey="url"
           fieldId="url"
-          helpText="Connection string in the format: postgresql://user:password@host:port/database"
-          label="Database URL"
+          helpText="String de conexão no formato: postgresql://user:password@host:port/database"
+          label="URL do banco"
           onChange={updateConfig}
           placeholder="postgresql://user:password@host:port/database"
           value={config.url || ""}
@@ -439,32 +443,32 @@ export function ConfigureConnectionOverlay({
     <Overlay
       actions={[
         {
-          label: "Test",
+          label: "Testar",
           variant: "outline",
           onClick: handleTest,
           loading: testing,
           disabled: saving,
         },
-        { label: "Create", onClick: handleSave, loading: saving },
+        { label: "Criar", onClick: handleSave, loading: saving },
       ]}
       overlayId={overlayId}
-      title={`Add ${getLabel(type)}`}
+      title={`Adicionar ${getLabel(type)}`}
     >
       <p className="-mt-2 mb-4 text-muted-foreground text-sm">
         {allowEmptyConfig && !formFields
-          ? "This connection uses the WhatsApp credentials from Settings."
-          : "Enter your credentials"}
+          ? "Esta conexão usa as credenciais do WhatsApp nas Configurações."
+          : "Informe suas credenciais"}
       </p>
 
       <div className="space-y-4">
         {renderConfigFields()}
 
         <div className="space-y-2">
-          <Label htmlFor="name">Label (Optional)</Label>
+          <Label htmlFor="name">Rotulo (opcional)</Label>
           <Input
             id="name"
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Production, Personal, Work"
+            placeholder="ex: Producao, Pessoal, Trabalho"
             value={name}
           />
         </div>

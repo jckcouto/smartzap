@@ -39,6 +39,7 @@ import { Contact, ContactStatus, CustomFieldDefinition } from '../../../types';
 import { CustomFieldsManager } from './CustomFieldsManager';
 import { CustomFieldsSheet } from './CustomFieldsSheet';
 import { Page, PageActions, PageDescription, PageHeader, PageTitle } from '@/components/ui/page';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // ... (existing imports)
 
@@ -399,17 +400,19 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
           {isSomeSelected && (
             <button
               onClick={onBulkDeleteClick}
-              className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-medium hover:bg-red-500/20 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 font-medium hover:bg-red-500/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2"
+              aria-label={`Excluir ${selectedIds.size} contato(s) selecionado(s)`}
             >
-              <Trash2 size={18} />
+              <Trash2 size={18} aria-hidden="true" />
               Excluir ({selectedIds.size})
             </button>
           )}
           <button
             onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-gray-300 font-medium hover:bg-white/5 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-gray-300 font-medium hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+            aria-label="Importar contatos via arquivo CSV"
           >
-            <UploadCloud size={18} />
+            <UploadCloud size={18} aria-hidden="true" />
             Importar CSV
           </button>
 
@@ -419,19 +422,21 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
             onFieldDeleted={handleCustomFieldDeleted}
           >
             <button
-              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-gray-300 font-medium hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900 border border-white/10 rounded-xl text-gray-300 font-medium hover:bg-white/5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
               type="button"
+              aria-label="Gerenciar campos personalizados"
             >
-              <FileText size={18} />
+              <FileText size={18} aria-hidden="true" />
               Campos personalizados
             </button>
           </CustomFieldsSheet>
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors shadow-lg shadow-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            aria-label="Adicionar novo contato"
           >
-            <Plus size={18} />
+            <Plus size={18} aria-hidden="true" />
             Novo Contato
           </button>
         </PageActions>
@@ -458,13 +463,14 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
         <div className="p-5 border-b border-white/5 flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex items-center gap-3 flex-1 bg-zinc-900/50 border border-white/10 rounded-xl px-4 py-2.5 max-w-md focus-within:border-primary-500/50 focus-within:ring-1 focus-within:ring-primary-500/50 transition-all">
-            <Search size={18} className="text-gray-500" />
+            <Search size={18} className="text-gray-500" aria-hidden="true" />
             <input
               type="text"
               placeholder="Buscar por nome ou telefone..."
               className="bg-transparent border-none outline-none text-sm w-full text-white placeholder-gray-600"
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
+              aria-label="Buscar contatos por nome ou telefone"
             />
           </div>
 
@@ -472,19 +478,22 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2.5 rounded-xl border transition-colors ${showFilters || statusFilter !== 'ALL' || tagFilter !== 'ALL'
+              className={`p-2.5 rounded-xl border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 ${showFilters || statusFilter !== 'ALL' || tagFilter !== 'ALL'
                 ? 'text-primary-400 bg-primary-500/10 border-primary-500/30'
                 : 'text-gray-400 hover:text-white hover:bg-white/5 border-white/10'
                 }`}
+              aria-label={showFilters ? "Ocultar filtros avançados" : "Mostrar filtros avançados"}
+              aria-expanded={showFilters}
             >
-              <Filter size={20} />
+              <Filter size={20} aria-hidden="true" />
             </button>
 
             {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => onStatusFilterChange(e.target.value as ContactStatus | 'ALL' | 'SUPPRESSED')}
-              className="px-4 py-2.5 text-sm font-medium bg-zinc-900 text-gray-300 hover:text-white rounded-xl border border-white/10 transition-colors outline-none cursor-pointer"
+              className="px-4 py-2.5 text-sm font-medium bg-zinc-900 text-gray-300 hover:text-white rounded-xl border border-white/10 transition-colors outline-none cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+              aria-label="Filtrar contatos por status"
             >
               {statusOptions.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -495,7 +504,8 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
             <select
               value={tagFilter}
               onChange={(e) => onTagFilterChange(e.target.value)}
-              className="px-4 py-2.5 text-sm font-medium bg-zinc-900 text-gray-300 hover:text-white rounded-xl border border-white/10 transition-colors outline-none cursor-pointer"
+              className="px-4 py-2.5 text-sm font-medium bg-zinc-900 text-gray-300 hover:text-white rounded-xl border border-white/10 transition-colors outline-none cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+              aria-label="Filtrar contatos por tag"
             >
               <option value="ALL">Todas Tags</option>
               {tags.map(tag => (
@@ -507,7 +517,7 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
 
         {/* Results Info */}
         <div className="px-5 py-3 bg-white/2 border-b border-white/5 flex items-center justify-between text-sm">
-          <span className="text-gray-500">
+          <span className="text-gray-500" aria-live="polite">
             Mostrando <span className="text-white font-medium">{contacts.length}</span> de{' '}
             <span className="text-white font-medium">{totalFiltered}</span> contatos
           </span>
@@ -591,7 +601,7 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
                 <tr><td colSpan={tableColSpan} className="px-6 py-8 text-center text-gray-500">Nenhum contato encontrado.</td></tr>
               ) : (
                 contacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-white/5 transition-colors group">
+                  <tr key={contact.id} className="hover:bg-white/5 transition-all duration-200 group hover:shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]">
                     <td className="px-6 py-5">
                       <input
                         type="checkbox"
@@ -647,20 +657,34 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
                     </td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => onEditContact(contact)}
-                          className="text-gray-500 hover:text-primary-400 p-1.5 rounded-lg hover:bg-primary-500/10 transition-colors"
-                          aria-label={`Editar contato ${contact.name || contact.phone}`}
-                        >
-                          <Edit2 size={16} aria-hidden="true" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteClick(contact.id)}
-                          className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
-                          aria-label={`Excluir contato ${contact.name || contact.phone}`}
-                        >
-                          <Trash2 size={16} aria-hidden="true" />
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => onEditContact(contact)}
+                              className="text-gray-500 hover:text-primary-400 p-1.5 rounded-lg hover:bg-primary-500/10 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+                              aria-label={`Editar contato ${contact.name || contact.phone}`}
+                            >
+                              <Edit2 size={16} aria-hidden="true" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Editar contato</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => onDeleteClick(contact.id)}
+                              className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500 focus-visible:outline-offset-2"
+                              aria-label={`Excluir contato ${contact.name || contact.phone}`}
+                            >
+                              <Trash2 size={16} aria-hidden="true" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Excluir contato</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>
@@ -677,13 +701,21 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
               Página {currentPage} de {totalPages}
             </span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => onPageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={18} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onPageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+                    aria-label="Página anterior"
+                  >
+                    <ChevronLeft size={18} aria-hidden="true" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Página anterior</p>
+                </TooltipContent>
+              </Tooltip>
 
               {/* Page Numbers */}
               <div className="flex items-center gap-1">
@@ -714,13 +746,21 @@ export const ContactListView: React.FC<ContactListViewProps> = ({
                 })}
               </div>
 
-              <button
-                onClick={() => onPageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={18} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onPageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2"
+                    aria-label="Próxima página"
+                  >
+                    <ChevronRight size={18} aria-hidden="true" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Próxima página</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         )}

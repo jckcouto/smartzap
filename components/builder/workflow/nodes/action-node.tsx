@@ -24,7 +24,7 @@ import {
   integrationIdsAtom,
   integrationsLoadedAtom,
 } from "@/lib/builder/integrations-store";
-import { cn } from "@/lib/builder/utils";
+import { cn } from "@/lib/builder/útils";
 import {
   executionLogsAtom,
   pendingIntegrationNodesAtom,
@@ -72,13 +72,13 @@ const getModelDisplayName = (modelId: string): string => {
 
 // System action labels (non-plugin actions)
 const SYSTEM_ACTION_LABELS: Record<string, string> = {
-  "HTTP Request": "System",
-  "Database Query": "Database",
-  Condition: "Condition",
-  "Execute Code": "System",
-  Delay: "Delay",
-  "Set Variable": "Variables",
-  "Get Variable": "Variables",
+  "HTTP Request": "Sistema",
+  "Database Query": "Banco",
+  Condition: "Condicao",
+  "Execute Code": "Sistema",
+  Delay: "Atraso",
+  "Set Variable": "Variáveis",
+  "Get Variable": "Variáveis",
 };
 
 // Helper to get integration name from action type
@@ -92,10 +92,10 @@ const getIntegrationFromActionType = (actionType: string): string => {
   const action = findActionById(actionType);
   if (action?.integration) {
     const plugin = getIntegration(action.integration);
-    return plugin?.label || "System";
+    return plugin?.label || "Sistema";
   }
 
-  return "System";
+  return "Sistema";
 };
 
 // Helper to detect if output is a base64 image from generateImage step
@@ -294,10 +294,10 @@ export const ActionNode = memo(({ data, selected, id }: ActionNodeProps) => {
           <Zap className="size-12 text-muted-foreground" strokeWidth={1.5} />
           <div className="flex flex-col items-center gap-1 text-center">
             <NodeTitle className="text-base">
-              {data.label || "Action"}
+              {data.label || "Ação"}
             </NodeTitle>
             <NodeDescription className="text-xs">
-              Select an action
+              Selecione uma ação
             </NodeDescription>
           </div>
         </div>

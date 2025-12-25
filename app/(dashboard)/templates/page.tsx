@@ -242,6 +242,9 @@ export default function TemplatesPage() {
         >
           <Workflow className="w-4 h-4" />
           Flows
+          <span className="rounded-full bg-emerald-500/20 px-1 py-[1px] text-[8px] font-semibold uppercase tracking-wider text-emerald-200 border border-emerald-500/30">
+            beta
+          </span>
         </button>
 
         <button
@@ -253,6 +256,9 @@ export default function TemplatesPage() {
         >
           <FileText className="w-4 h-4" />
           Forms
+          <span className="rounded-full bg-emerald-500/20 px-1 py-[1px] text-[8px] font-semibold uppercase tracking-wider text-emerald-200 border border-emerald-500/30">
+            beta
+          </span>
         </button>
 
         <button
@@ -264,6 +270,9 @@ export default function TemplatesPage() {
         >
           <LayoutGrid className="w-4 h-4" />
           Projetos (Fábrica)
+          <span className="rounded-full bg-emerald-500/20 px-1 py-[1px] text-[8px] font-semibold uppercase tracking-wider text-emerald-200 border border-emerald-500/30">
+            beta
+          </span>
         </button>
       </div>
 

@@ -36,7 +36,7 @@ type ExecutionLog = {
   nodeId: string;
   nodeName: string;
   nodeType: string;
-  status: "pending" | "running" | "success" | "error";
+  status: "pending" | "running" | "success" | "error" | "skipped";
   startedAt: Date;
   completedAt: Date | null;
   duration: string | null;
@@ -48,7 +48,7 @@ type ExecutionLog = {
 type WorkflowExecution = {
   id: string;
   workflowId: string;
-  status: "pending" | "running" | "success" | "error" | "cancelled";
+  status: "pending" | "running" | "success" | "error" | "cancelled" | "skipped";
   startedAt: Date;
   completedAt: Date | null;
   duration: string | null;
@@ -101,7 +101,7 @@ function createExecutionLogsMap(logs: ExecutionLog[]): Record<
     nodeId: string;
     nodeName: string;
     nodeType: string;
-    status: "pending" | "running" | "success" | "error";
+    status: "pending" | "running" | "success" | "error" | "skipped";
     output?: unknown;
   }
 > {
@@ -111,7 +111,7 @@ function createExecutionLogsMap(logs: ExecutionLog[]): Record<
       nodeId: string;
       nodeName: string;
       nodeType: string;
-      status: "pending" | "running" | "success" | "error";
+      status: "pending" | "running" | "success" | "error" | "skipped";
       output?: unknown;
     }
   > = {};
@@ -581,7 +581,7 @@ export function WorkflowRuns({
         nodeId: string;
         nodeName: string;
         nodeType: string;
-        status: "pending" | "running" | "success" | "error";
+        status: "pending" | "running" | "success" | "error" | "skipped";
         input: unknown;
         output: unknown;
         error: string | null;
@@ -762,6 +762,8 @@ export function WorkflowRuns({
         return <X className="h-3 w-3 text-white" />;
       case "running":
         return <Loader2 className="h-3 w-3 animate-spin text-white" />;
+      case "skipped":
+        return <ChevronRight className="h-3 w-3 text-white" />;
       default:
         return <Clock className="h-3 w-3 text-white" />;
     }
@@ -775,6 +777,8 @@ export function WorkflowRuns({
         return "bg-red-600";
       case "running":
         return "bg-blue-600";
+      case "skipped":
+        return "bg-gray-500";
       default:
         return "bg-muted-foreground";
     }

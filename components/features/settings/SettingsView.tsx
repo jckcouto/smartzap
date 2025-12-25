@@ -173,9 +173,6 @@ interface SettingsViewProps {
   isSavingAutoSuppression?: boolean;
 
   // Workflow Builder default
-  workflowBuilderDefault?: { defaultWorkflowId: string } | null;
-  workflowBuilderDefaultLoading?: boolean;
-  saveWorkflowBuilderDefault?: (workflowId: string) => Promise<void>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -242,9 +239,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   saveAutoSuppression,
   isSavingAutoSuppression,
 
-  workflowBuilderDefault,
-  workflowBuilderDefaultLoading,
-  saveWorkflowBuilderDefault,
 }) => {
   // Always start collapsed
   const [isEditing, setIsEditing] = useState(false);
@@ -259,9 +253,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isEditingTestContact, setIsEditingTestContact] = useState(false);
   const [testContactName, setTestContactName] = useState(testContact?.name || '');
   const [testContactPhone, setTestContactPhone] = useState(testContact?.phone || '');
-  const [defaultWorkflowId, setDefaultWorkflowId] = useState(
-    workflowBuilderDefault?.defaultWorkflowId || ''
-  );
 
   // Webhook override editing
   const [editingPhoneId, setEditingPhoneId] = useState<string | null>(null);
@@ -271,9 +262,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Webhook explanation expanded state
   const [showWebhookExplanation, setShowWebhookExplanation] = useState(false);
 
-  useEffect(() => {
-    setDefaultWorkflowId(workflowBuilderDefault?.defaultWorkflowId || '');
-  }, [workflowBuilderDefault?.defaultWorkflowId]);
 
   // Meta App (opcional) form state
   const [isEditingMetaApp, setIsEditingMetaApp] = useState(false);
@@ -1177,51 +1165,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
 
-        {/* Workflow Builder Default */}
-        {settings.isConnected && (
-          <div className="glass-panel rounded-2xl p-8 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <span className="w-1 h-6 bg-emerald-500 rounded-full"></span>
-              Workflow padrão (Chatbot)
-            </h3>
-            <p className="text-sm text-gray-400 mb-6">
-              Defina qual workflow do Builder será executado quando uma mensagem chegar pelo WhatsApp.
-            </p>
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Workflow ID
-                </label>
-                <input
-                  type="text"
-                  value={defaultWorkflowId}
-                  onChange={(e) => setDefaultWorkflowId(e.target.value)}
-                  placeholder="Ex: XnqClg2FOsXeU6bGtnfk"
-                  className="w-full px-4 py-3 bg-zinc-900/50 border border-white/10 rounded-xl focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none text-sm text-white font-mono transition-all"
-                />
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setDefaultWorkflowId('')}
-                  className="h-10 px-4 text-sm text-gray-400 hover:text-white transition-colors"
-                  disabled={workflowBuilderDefaultLoading}
-                >
-                  Limpar
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!saveWorkflowBuilderDefault) return;
-                    await saveWorkflowBuilderDefault(defaultWorkflowId.trim());
-                  }}
-                  className="h-10 px-4 text-sm font-medium bg-emerald-500 text-black rounded-lg hover:bg-emerald-400 transition-colors disabled:opacity-60"
-                  disabled={workflowBuilderDefaultLoading}
-                >
-                  {workflowBuilderDefaultLoading ? 'Salvando…' : 'Salvar workflow'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Workflow Builder Default moved to /workflows */}
 
         {/* Test Contact Section */}
         {settings.isConnected && (

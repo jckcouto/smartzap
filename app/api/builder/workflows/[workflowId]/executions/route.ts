@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   const { data, error } = await supabase
-    .from("workflow_builder_executions")
+    .from("workflow_runs")
     .select("*")
     .eq("workflow_id", workflowId)
     .order("started_at", { ascending: false })

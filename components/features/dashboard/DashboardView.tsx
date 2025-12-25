@@ -192,7 +192,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
           >
             <div className="h-75 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={(stats.chartData || []).slice(range === '7D' ? -7 : -30)} aria-hidden="true">
+                <AreaChart data={chartData.slice(-rangeSize)} aria-hidden="true">
                   <defs>
                     <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.22}/>

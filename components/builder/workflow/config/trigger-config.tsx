@@ -31,7 +31,7 @@ export function TriggerConfig({
   workflowId,
 }: TriggerConfigProps) {
   const webhookUrl = workflowId
-    ? `${process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "")}/api/builder/${workflowId}/webhook`
+    ? `${process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "")}/api/builder/workflows/${workflowId}/webhook`
     : "";
 
   const handleCopyWebhookUrl = () => {

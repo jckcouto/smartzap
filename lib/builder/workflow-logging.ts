@@ -1,5 +1,6 @@
 /**
  * Server-only workflow logging functions (Supabase-backed)
+ * Uses workflow_runs / workflow_run_logs.
  */
 import "server-only";
 
@@ -27,9 +28,9 @@ export async function logStepStartDb(
   }
 
   const { data } = await supabase
-    .from("workflow_builder_logs")
+    .from("workflow_run_logs")
     .insert({
-      execution_id: params.executionId,
+      run_id: params.executionId,
       node_id: params.nodeId,
       node_name: params.nodeName,
       node_type: params.nodeType,
@@ -62,7 +63,7 @@ export async function logStepCompleteDb(
   if (!supabase) return;
 
   await supabase
-    .from("workflow_builder_logs")
+    .from("workflow_run_logs")
     .update({
       status: params.status,
       output: params.output ?? null,
@@ -87,7 +88,7 @@ export async function logWorkflowCompleteDb(
   if (!supabase) return;
 
   await supabase
-    .from("workflow_builder_executions")
+    .from("workflow_runs")
     .update({
       status: params.status,
       output: params.output ?? null,

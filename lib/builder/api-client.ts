@@ -25,6 +25,8 @@ export type SavedWorkflow = WorkflowData & {
   createdAt: string;
   updatedAt: string;
   isOwner?: boolean;
+  status?: string;
+  lastPublishedVersion?: number | null;
 };
 
 // API error class
@@ -512,6 +514,42 @@ export const workflowApi = {
   getCode: (id: string) =>
     apiCall<{ code: string; workflowName: string }>(
       `/api/builder/workflows/${id}/code`
+    ),
+
+  // Metrics
+  getMetrics: () =>
+    apiCall<{
+      totals: { runs: number; success: number; failed: number };
+      byWorkflow: Record<string, { runs: number; success: number; failed: number }>;
+    }>(`/api/builder/workflows/metrics`),
+
+  // Versions
+  getVersions: (id: string) =>
+    apiCall<
+      Array<{
+        id: string;
+        version: number;
+        status: string;
+        created_at: string;
+        published_at?: string | null;
+      }>
+    >(`/api/builder/workflows/${id}/versions`),
+
+  // Publish workflow
+  publish: (id: string) =>
+    apiCall<{ success: boolean; versionId: string; version: number }>(
+      `/api/builder/workflows/${id}/publish`,
+      { method: "POST" }
+    ),
+
+  // Rollback workflow
+  rollback: (id: string, versionId: string) =>
+    apiCall<{ success: boolean; versionId: string }>(
+      `/api/builder/workflows/${id}/rollback`,
+      {
+        method: "POST",
+        body: JSON.stringify({ versionId }),
+      }
     ),
 
   // Get executions

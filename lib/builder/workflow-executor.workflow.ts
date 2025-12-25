@@ -209,6 +209,48 @@ function evaluateConditionExpression(
   return { result: Boolean(conditionExpression), resolvedValues: {} };
 }
 
+async function sleep(ms: number): Promise<void> {
+  if (!ms || ms <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWithTimeout<T>(
+  fn: () => Promise<T>,
+  timeoutMs?: number
+): Promise<T> {
+  if (!timeoutMs || timeoutMs <= 0) {
+    return await fn();
+  }
+
+  return await Promise.race([
+    fn(),
+    new Promise<T>((_resolve, reject) =>
+      setTimeout(() => reject(new Error("Step timeout")), timeoutMs)
+    ),
+  ]);
+}
+
+async function runWithRetry<T>(
+  fn: () => Promise<T>,
+  retries: number,
+  baseDelayMs: number,
+  timeoutMs?: number
+): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await runWithTimeout(fn, timeoutMs);
+    } catch (error) {
+      if (attempt >= retries) {
+        throw error;
+      }
+      const delay = Math.max(0, baseDelayMs) * Math.pow(2, attempt);
+      attempt += 1;
+      await sleep(delay);
+    }
+  }
+}
+
 /**
  * Execute a single action step with logging via stepHandler
  * IMPORTANT: Steps receive only the integration ID as a reference to fetch credentials.
@@ -219,14 +261,49 @@ async function executeActionStep(input: {
   config: Record<string, unknown>;
   outputs: NodeOutputs;
   context: StepContext;
+  triggerData: Record<string, unknown>;
+  variables: Record<string, unknown>;
 }) {
-  const { actionType, config, outputs, context } = input;
+  const { actionType, config, outputs, context, triggerData, variables } = input;
 
   // Build step input WITHOUT credentials, but WITH integrationId reference and logging context
   const stepInput: Record<string, unknown> = {
     ...config,
+    triggerData,
     _context: context,
   };
+
+  const retryCount = Number(config.retryCount ?? 0);
+  const retryDelayMs = Number(config.retryDelayMs ?? 0);
+  const timeoutMs = Number(config.timeoutMs ?? 0);
+
+  if (actionType === "Delay") {
+    const delayMs =
+      typeof stepInput.delayMs === "number"
+        ? stepInput.delayMs
+        : Number(stepInput.delayMs || 0);
+    const safeDelay = Number.isFinite(delayMs) ? Math.max(0, delayMs) : 0;
+    await new Promise((resolve) => setTimeout(resolve, safeDelay));
+    return { success: true, data: { delayMs: safeDelay } };
+  }
+
+  if (actionType === "Set Variable") {
+    const key = String(stepInput.variableKey || "");
+    const value = stepInput.variableValue;
+    if (!key) {
+      return { success: false, error: "Variable key is required" };
+    }
+    variables[key] = value;
+    return { success: true, data: { key, value } };
+  }
+
+  if (actionType === "Get Variable") {
+    const key = String(stepInput.variableKey || "");
+    if (!key) {
+      return { success: false, error: "Variable key is required" };
+    }
+    return { success: true, data: { key, value: variables[key] } };
+  }
 
   // Special handling for Condition action - needs template evaluation
   if (actionType === "Condition") {
@@ -240,15 +317,23 @@ async function executeActionStep(input: {
       evaluateConditionExpression(originalExpression, outputs);
     console.log("[Condition] Final result:", evaluatedCondition);
 
-    return await module[systemAction.stepFunction]({
-      condition: evaluatedCondition,
-      // Include original expression and resolved values for logging purposes
-      expression:
-        typeof originalExpression === "string" ? originalExpression : undefined,
-      values:
-        Object.keys(resolvedValues).length > 0 ? resolvedValues : undefined,
-      _context: context,
-    });
+    return await runWithRetry(
+      () =>
+        module[systemAction.stepFunction]({
+          condition: evaluatedCondition,
+          // Include original expression and resolved values for logging purposes
+          expression:
+            typeof originalExpression === "string"
+              ? originalExpression
+              : undefined,
+          values:
+            Object.keys(resolvedValues).length > 0 ? resolvedValues : undefined,
+          _context: context,
+        }),
+      Number.isFinite(retryCount) ? retryCount : 0,
+      Number.isFinite(retryDelayMs) ? retryDelayMs : 0,
+      Number.isFinite(timeoutMs) ? timeoutMs : 0
+    );
   }
 
   // Check system actions first (Database Query, HTTP Request)
@@ -259,7 +344,12 @@ async function executeActionStep(input: {
       (input: Record<string, unknown>) => Promise<unknown>
     >;
     const stepFunction = module[systemAction.stepFunction];
-    return await stepFunction(stepInput);
+    return await runWithRetry(
+      () => stepFunction(stepInput),
+      Number.isFinite(retryCount) ? retryCount : 0,
+      Number.isFinite(retryDelayMs) ? retryDelayMs : 0,
+      Number.isFinite(timeoutMs) ? timeoutMs : 0
+    );
   }
 
   // Look up plugin action from the generated step registry
@@ -271,7 +361,12 @@ async function executeActionStep(input: {
     >;
     const stepFunction = module[stepImporter.stepFunction];
     if (stepFunction) {
-      return await stepFunction(stepInput);
+      return await runWithRetry(
+        () => stepFunction(stepInput),
+        Number.isFinite(retryCount) ? retryCount : 0,
+        Number.isFinite(retryDelayMs) ? retryDelayMs : 0,
+        Number.isFinite(timeoutMs) ? timeoutMs : 0
+      );
     }
 
     return {
@@ -398,27 +493,32 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
 
   const outputs: NodeOutputs = {};
   const results: Record<string, ExecutionResult> = {};
+  const variables: Record<string, unknown> = {};
 
   // Build node and edge maps
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const edgesBySource = new Map<string, string[]>();
+  const incomingCounts = new Map<string, number>();
+  for (const node of nodes) {
+    incomingCounts.set(node.id, 0);
+  }
   for (const edge of edges) {
     const targets = edgesBySource.get(edge.source) || [];
     targets.push(edge.target);
     edgesBySource.set(edge.source, targets);
+    incomingCounts.set(edge.target, (incomingCounts.get(edge.target) || 0) + 1);
   }
 
-  // Find trigger nodes
-  const nodesWithIncoming = new Set(edges.map((e) => e.target));
-  const triggerNodes = nodes.filter(
-    (node) => node.data.type === "trigger" && !nodesWithIncoming.has(node.id)
-  );
+  const satisfiedIncoming = new Map<string, number>();
+  const blockedIncoming = new Map<string, number>();
+  const resolvedNodes = new Set<string>();
 
-  console.log(
-    "[Workflow Executor] Found",
-    triggerNodes.length,
-    "trigger nodes"
-  );
+  const readyQueue: string[] = [];
+  for (const [nodeId, count] of incomingCounts.entries()) {
+    if (count === 0) {
+      readyQueue.push(nodeId);
+    }
+  }
 
   // Helper to get a meaningful node name
   function getNodeName(node: WorkflowNode): string {
@@ -442,267 +542,204 @@ export async function executeWorkflow(input: WorkflowExecutionInput) {
     return node.data.type;
   }
 
-  // Helper to execute a single node
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Node execution requires type checking and error handling
-  async function executeNode(nodeId: string, visited: Set<string> = new Set()) {
-    console.log("[Workflow Executor] Executing node:", nodeId);
+  try {
+    console.log("[Workflow Executor] Starting execution from trigger nodes");
+    const workflowStartTime = Date.now();
+    const enqueueIfReady = (nodeId: string) => {
+      if (resolvedNodes.has(nodeId)) return;
+      const total = incomingCounts.get(nodeId) || 0;
+      const satisfied = satisfiedIncoming.get(nodeId) || 0;
+      const blocked = blockedIncoming.get(nodeId) || 0;
+      if (satisfied + blocked < total) return;
+      if (total === 0 || satisfied > 0) {
+        readyQueue.push(nodeId);
+        return;
+      }
+      if (blocked === total) {
+        skipNode(nodeId);
+      }
+    };
 
-    if (visited.has(nodeId)) {
-      console.log("[Workflow Executor] Node already visited, skipping");
-      return; // Prevent cycles
-    }
-    visited.add(nodeId);
+    const markEdgeResult = (targetId: string, status: "satisfied" | "blocked") => {
+      if (status === "satisfied") {
+        satisfiedIncoming.set(
+          targetId,
+          (satisfiedIncoming.get(targetId) || 0) + 1
+        );
+      } else {
+        blockedIncoming.set(
+          targetId,
+          (blockedIncoming.get(targetId) || 0) + 1
+        );
+      }
+      enqueueIfReady(targetId);
+    };
 
-    const node = nodeMap.get(nodeId);
-    if (!node) {
-      console.log("[Workflow Executor] Node not found:", nodeId);
-      return;
-    }
-
-    // Skip disabled nodes
-    if (node.data.enabled === false) {
-      console.log("[Workflow Executor] Skipping disabled node:", nodeId);
-
-      // Store null output for disabled nodes so downstream templates don't fail
+    const skipNode = (nodeId: string) => {
+      if (resolvedNodes.has(nodeId)) return;
+      resolvedNodes.add(nodeId);
+      results[nodeId] = { success: false, error: "skipped" };
       const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
       outputs[sanitizedNodeId] = {
-        label: node.data.label || nodeId,
+        label: nodeMap.get(nodeId)?.data.label || nodeId,
         data: null,
       };
-
       const nextNodes = edgesBySource.get(nodeId) || [];
-      await Promise.all(
-        nextNodes.map((nextNodeId) => executeNode(nextNodeId, visited))
-      );
-      return;
-    }
+      for (const next of nextNodes) {
+        markEdgeResult(next, "blocked");
+      }
+    };
 
-    try {
-      let result: ExecutionResult;
-
-      if (node.data.type === "trigger") {
-        console.log("[Workflow Executor] Executing trigger node");
-
-        const config = node.data.config || {};
-        const triggerType = config.triggerType as string;
-        let triggerData: Record<string, unknown> = {
-          triggered: true,
-          timestamp: Date.now(),
-        };
-
-        // Handle webhook mock request for test runs
-        if (
-          triggerType === "Webhook" &&
-          config.webhookMockRequest &&
-          (!triggerInput || Object.keys(triggerInput).length === 0)
-        ) {
-          try {
-            const mockData = JSON.parse(config.webhookMockRequest as string);
-            triggerData = { ...triggerData, ...mockData };
-            console.log(
-              "[Workflow Executor] Using webhook mock request data:",
-              mockData
-            );
-          } catch (error) {
-            console.error(
-              "[Workflow Executor] Failed to parse webhook mock request:",
-              error
-            );
-          }
-        } else if (triggerInput && Object.keys(triggerInput).length > 0) {
-          // Use provided trigger input
-          triggerData = { ...triggerData, ...triggerInput };
-        }
-
-        // Build context for logging
-        const triggerContext: StepContext = {
-          executionId,
-          nodeId: node.id,
-          nodeName: getNodeName(node),
-          nodeType: node.data.type,
-        };
-
-        // Execute trigger step (handles logging internally)
-        const triggerResult = await triggerStep({
-          triggerData,
-          _context: triggerContext,
-        });
-
-        result = {
-          success: triggerResult.success,
-          data: triggerResult.data,
-        };
-      } else if (node.data.type === "action") {
-        const config = node.data.config || {};
-        const actionType = config.actionType as string | undefined;
-
-        console.log("[Workflow Executor] Executing action node:", actionType);
-
-        // Check if action type is defined
-        if (!actionType) {
-          result = {
-            success: false,
-            error: `Action node "${node.data.label || node.id}" has no action type configured`,
-          };
-          results[nodeId] = result;
-          return;
-        }
-
-        // Process templates in config, but keep condition unprocessed for special handling
-        const configWithoutCondition = { ...config };
-        const originalCondition = config.condition;
-        configWithoutCondition.condition = undefined;
-
-        const processedConfig = processTemplates(
-          configWithoutCondition,
-          outputs
-        );
-
-        // Add back the original condition (unprocessed)
-        if (originalCondition !== undefined) {
-          processedConfig.condition = originalCondition;
-        }
-
-        // Build step context for logging (stepHandler will handle the logging)
-        const stepContext: StepContext = {
-          executionId,
-          nodeId: node.id,
-          nodeName: getNodeName(node),
-          nodeType: actionType,
-        };
-
-        // Execute the action step with stepHandler (logging is handled inside)
-        // IMPORTANT: We pass integrationId via config, not actual credentials
-        // Steps fetch credentials internally using fetchCredentials(integrationId)
-        console.log("[Workflow Executor] Calling executeActionStep");
-        const stepResult = await executeActionStep({
-          actionType,
-          config: processedConfig,
-          outputs,
-          context: stepContext,
-        });
-
-        console.log("[Workflow Executor] Step result received:", {
-          hasResult: !!stepResult,
-          resultType: typeof stepResult,
-        });
-
-        // Check if the step returned an error result
-        const isErrorResult =
-          stepResult &&
-          typeof stepResult === "object" &&
-          "success" in stepResult &&
-          (stepResult as { success: boolean }).success === false;
-
-        if (isErrorResult) {
-          const errorResult = stepResult as {
-            success: false;
-            error?: string | { message: string };
-          };
-          // Support both old format (error: string) and new format (error: { message: string })
-          const errorMessage =
-            typeof errorResult.error === "string"
-              ? errorResult.error
-              : errorResult.error?.message ||
-                `Step "${actionType}" in node "${node.data.label || node.id}" failed without a specific error message.`;
-          result = {
-            success: false,
-            error: errorMessage,
-          };
-        } else {
-          result = {
-            success: true,
-            data: stepResult,
-          };
-        }
-      } else {
-        console.log("[Workflow Executor] Unknown node type:", node.data.type);
-        result = {
-          success: false,
-          error: `Unknown node type "${node.data.type}" in node "${node.data.label || node.id}". Expected "trigger" or "action".`,
-        };
+    while (readyQueue.length > 0) {
+      const nodeId = readyQueue.shift();
+      if (!nodeId || resolvedNodes.has(nodeId)) {
+        continue;
+      }
+      const node = nodeMap.get(nodeId);
+      if (!node) {
+        resolvedNodes.add(nodeId);
+        continue;
       }
 
-      // Store results
-      results[nodeId] = result;
+      if (node.data.enabled === false) {
+        skipNode(nodeId);
+        continue;
+      }
 
-      // Store outputs with sanitized nodeId for template variable lookup
+      let result: ExecutionResult;
+      try {
+        if (node.data.type === "trigger") {
+          const config = node.data.config || {};
+          const triggerType = config.triggerType as string;
+          let triggerData: Record<string, unknown> = {
+            triggered: true,
+            timestamp: Date.now(),
+          };
+
+          if (
+            triggerType === "Webhook" &&
+            config.webhookMockRequest &&
+            (!triggerInput || Object.keys(triggerInput).length === 0)
+          ) {
+            try {
+              const mockData = JSON.parse(config.webhookMockRequest as string);
+              triggerData = { ...triggerData, ...mockData };
+            } catch (error) {
+              console.error(
+                "[Workflow Executor] Failed to parse webhook mock request:",
+                error
+              );
+            }
+          } else if (triggerInput && Object.keys(triggerInput).length > 0) {
+            triggerData = { ...triggerData, ...triggerInput };
+          }
+
+          const triggerContext: StepContext = {
+            executionId,
+            nodeId: node.id,
+            nodeName: getNodeName(node),
+            nodeType: node.data.type,
+          };
+
+          const triggerResult = await triggerStep({
+            triggerData,
+            _context: triggerContext,
+          });
+
+          result = { success: triggerResult.success, data: triggerResult.data };
+        } else if (node.data.type === "action") {
+          const config = node.data.config || {};
+          const actionType = config.actionType as string | undefined;
+
+          if (!actionType) {
+            result = {
+              success: false,
+              error: `Action node "${node.data.label || node.id}" has no action type configured`,
+            };
+          } else {
+            const configWithoutCondition = { ...config };
+            const originalCondition = config.condition;
+            configWithoutCondition.condition = undefined;
+
+            const processedConfig = processTemplates(
+              configWithoutCondition,
+              outputs
+            );
+
+            if (originalCondition !== undefined) {
+              processedConfig.condition = originalCondition;
+            }
+
+            const stepContext: StepContext = {
+              executionId,
+              nodeId: node.id,
+              nodeName: getNodeName(node),
+              nodeType: actionType,
+            };
+
+            const stepResult = await executeActionStep({
+              actionType,
+              config: processedConfig,
+              outputs,
+              context: stepContext,
+              triggerData: triggerInput ?? {},
+              variables,
+            });
+
+            const isErrorResult =
+              stepResult &&
+              typeof stepResult === "object" &&
+              "success" in stepResult &&
+              (stepResult as { success: boolean }).success === false;
+
+            if (isErrorResult) {
+              const errorResult = stepResult as {
+                success: false;
+                error?: string | { message: string };
+              };
+              const errorMessage =
+                typeof errorResult.error === "string"
+                  ? errorResult.error
+                  : errorResult.error?.message ||
+                    `Step "${actionType}" in node "${node.data.label || node.id}" failed without a specific error message.`;
+              result = { success: false, error: errorMessage };
+            } else {
+              result = { success: true, data: stepResult };
+            }
+          }
+        } else {
+          result = {
+            success: false,
+            error: `Unknown node type "${node.data.type}" in node "${node.data.label || node.id}".`,
+          };
+        }
+      } catch (error) {
+        const errorMessage = await getErrorMessageAsync(error);
+        result = { success: false, error: errorMessage };
+      }
+
+      results[nodeId] = result;
+      resolvedNodes.add(nodeId);
       const sanitizedNodeId = nodeId.replace(/[^a-zA-Z0-9]/g, "_");
       outputs[sanitizedNodeId] = {
         label: node.data.label || nodeId,
         data: result.data,
       };
 
-      console.log("[Workflow Executor] Node execution completed:", {
-        nodeId,
-        success: result.success,
-      });
-
-      // Execute next nodes
-      if (result.success) {
-        // Check if this is a condition node
-        const isConditionNode =
-          node.data.type === "action" &&
-          node.data.config?.actionType === "Condition";
-
-        if (isConditionNode) {
-          // For condition nodes, only execute next nodes if condition is true
-          const conditionResult = (result.data as { condition?: boolean })
-            ?.condition;
-          console.log(
-            "[Workflow Executor] Condition node result:",
-            conditionResult
-          );
-
-          if (conditionResult === true) {
-            const nextNodes = edgesBySource.get(nodeId) || [];
-            console.log(
-              "[Workflow Executor] Condition is true, executing",
-              nextNodes.length,
-              "next nodes in parallel"
-            );
-            // Execute all next nodes in parallel
-            await Promise.all(
-              nextNodes.map((nextNodeId) => executeNode(nextNodeId, visited))
-            );
-          } else {
-            console.log(
-              "[Workflow Executor] Condition is false, skipping next nodes"
-            );
-          }
-        } else {
-          // For non-condition nodes, execute all next nodes in parallel
-          const nextNodes = edgesBySource.get(nodeId) || [];
-          console.log(
-            "[Workflow Executor] Executing",
-            nextNodes.length,
-            "next nodes in parallel"
-          );
-          // Execute all next nodes in parallel
-          await Promise.all(
-            nextNodes.map((nextNodeId) => executeNode(nextNodeId, visited))
-          );
-        }
+      const nextNodes = edgesBySource.get(nodeId) || [];
+      const isConditionNode =
+        node.data.type === "action" &&
+        node.data.config?.actionType === "Condition";
+      let allowOutgoing = result.success;
+      if (isConditionNode) {
+        const conditionResult = (result.data as { condition?: boolean })
+          ?.condition;
+        allowOutgoing = conditionResult === true;
       }
-    } catch (error) {
-      console.error("[Workflow Executor] Error executing node:", nodeId, error);
-      const errorMessage = await getErrorMessageAsync(error);
-      const errorResult = {
-        success: false,
-        error: errorMessage,
-      };
-      results[nodeId] = errorResult;
-      // Note: stepHandler already logged the error for action steps
-      // Trigger steps don't throw, so this catch is mainly for unexpected errors
+      for (const next of nextNodes) {
+        markEdgeResult(next, allowOutgoing ? "satisfied" : "blocked");
+      }
     }
-  }
-
-  // Execute from each trigger node in parallel
-  try {
-    console.log("[Workflow Executor] Starting execution from trigger nodes");
-    const workflowStartTime = Date.now();
-
-    await Promise.all(triggerNodes.map((trigger) => executeNode(trigger.id)));
 
     const finalSuccess = Object.values(results).every((r) => r.success);
     const duration = Date.now() - workflowStartTime;

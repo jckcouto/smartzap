@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,8 +10,10 @@ import {
     MessageSquare,
     Users,
     Settings,
+    Plus,
     LogOut,
     Menu,
+    X,
     Bell,
     Zap,
     ChevronLeft,
@@ -418,7 +421,19 @@ export function DashboardShell({
     const queryClient = useQueryClient()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
-    const [isSidebarHidden, setIsSidebarHidden] = useState(false)
+    const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        setIsSidebarExpanded(true)
+        window.localStorage.setItem('app-sidebar-collapsed', 'false')
+    }, [])
+
+    const updateSidebarExpanded = useCallback((value: boolean) => {
+        setIsSidebarExpanded(value)
+        if (typeof window === 'undefined') return
+        window.localStorage.setItem('app-sidebar-collapsed', value ? 'false' : 'true')
+    }, [])
 
     // Enable real-time toast notifications for global events
     // This shows toasts when campaigns complete, new contacts are added, etc.
@@ -437,6 +452,8 @@ export function DashboardShell({
         refetchOnMount: false,
         refetchOnWindowFocus: false,
     })
+
+    const companyName = authStatus?.company?.name || initialAuthStatus?.company?.name
 
     // Logout handler
     const handleLogout = async () => {
@@ -535,7 +552,7 @@ export function DashboardShell({
     const navItems = [
         { path: '/', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/campaigns', label: 'Campanhas', icon: MessageSquare },
-        { path: '/workflows', label: 'Workflows', icon: Workflow, hidden: true }, // TODO: In development
+        { path: '/workflows', label: 'Workflow', icon: Workflow, badge: 'beta' },
         { path: '/conversations', label: 'Conversas', icon: MessageCircle, hidden: true },
         { path: '/templates', label: 'Templates', icon: FileText },
         { path: '/contacts', label: 'Contatos', icon: Users },
@@ -550,6 +567,7 @@ export function DashboardShell({
         if (path === '/workflows') return 'Workflows'
         if (path === '/conversations') return 'Conversas'
         if (path.startsWith('/conversations/')) return 'Conversa'
+        if (path.startsWith('/builder')) return 'Workflow'
         if (path === '/flows') return 'Flows'
         if (path === '/flows/builder') return 'Flow Builder'
         if (path.startsWith('/flows/builder/')) return 'Editor de Flow'
@@ -572,23 +590,18 @@ export function DashboardShell({
 
     const isBuilderRoute = pathname?.startsWith('/builder') ?? false
 
-    const Sidebar = (
+    const CompactSidebar = (
         <aside
-            className={`fixed lg:static inset-y-0 left-0 z-50 w-14 bg-zinc-950 border-r border-white/5 transform transition-transform duration-200 ease-in-out ${isSidebarHidden
-                ? '-translate-x-full'
-                : isMobileMenuOpen
-                    ? 'translate-x-0'
-                    : '-translate-x-full lg:translate-x-0'
-                }`}
+            className={`hidden lg:flex fixed lg:static inset-y-0 left-0 z-50 w-14 bg-zinc-950 border-r border-white/5 ${isSidebarExpanded ? 'lg:hidden' : ''}`}
         >
             <div className="flex h-full w-14 flex-col items-center gap-3 py-3">
                 <button
                     type="button"
                     className="hidden lg:flex h-7 w-7 items-center justify-center rounded-md border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                    onClick={() => setIsSidebarHidden((prev) => !prev)}
-                    title={isSidebarHidden ? 'Expandir menu' : 'Recolher menu'}
+                    onClick={() => updateSidebarExpanded(true)}
+                    title="Expandir menu"
                 >
-                    {isSidebarHidden ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                    <ChevronRight size={14} />
                 </button>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-linear-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-900/20">
                     <Zap className="text-white" size={18} fill="currentColor" />
@@ -598,11 +611,16 @@ export function DashboardShell({
                         <PrefetchLink
                             key={item.path}
                             href={item.path}
-                            className={`group flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-gray-400 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white ${pathname === item.path ? 'bg-white/5 text-white' : ''}`}
+                            className={`group relative flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-gray-400 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white ${pathname === item.path ? 'bg-white/5 text-white' : ''}`}
                             onMouseEnter={() => prefetchRoute(item.path)}
                             title={item.label}
                         >
                             <item.icon size={16} />
+                            {item.badge && (
+                                <span className="absolute -right-1 -top-1 rounded-full bg-emerald-500/90 px-0.5 py-[1px] text-[7px] font-semibold uppercase tracking-wider text-black">
+                                    {item.badge}
+                                </span>
+                            )}
                         </PrefetchLink>
                     ))}
                 </nav>
@@ -625,6 +643,106 @@ export function DashboardShell({
         </aside>
     )
 
+    const ExpandedSidebar = (
+        <aside
+            className={`fixed inset-y-0 left-0 z-50 w-56 bg-zinc-950 border-r border-white/5 transform transition-transform duration-200 ease-in-out ${isSidebarExpanded || isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+                }`}
+        >
+            <div className="flex h-full flex-col p-4">
+                <div className="h-16 flex items-center px-2 mb-6">
+                    <div className="w-10 h-10 bg-linear-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-primary-900/20 border border-white/10">
+                        <Zap className="text-white" size={20} fill="currentColor" />
+                    </div>
+                    <div>
+                        <span className="text-xl font-bold text-white tracking-tight block">SmartZap</span>
+                    </div>
+                    <button
+                        type="button"
+                        className="ml-auto h-7 w-7 items-center justify-center rounded-md border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors hidden lg:flex"
+                        onClick={() => updateSidebarExpanded(false)}
+                        title="Recolher menu"
+                    >
+                        <ChevronLeft size={14} />
+                    </button>
+                    <button
+                        className="ml-auto lg:hidden"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                        <X size={20} className="text-gray-400" />
+                    </button>
+                </div>
+
+                <nav className="flex-1 space-y-6 overflow-y-auto no-scrollbar">
+                    <div>
+                        <PrefetchLink
+                            href="/campaigns/new"
+                            className="group relative inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium transition-all shadow-lg shadow-primary-900/20 overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-primary-600 group-hover:bg-primary-500 transition-colors"></div>
+                            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                            <Plus size={16} className="relative z-10 text-white" />
+                            <span className="relative z-10 text-white">Nova Campanha</span>
+                        </PrefetchLink>
+                    </div>
+
+                    <div className="space-y-1">
+                        <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Menu</p>
+                        {navItems.map((item) => (
+                            <PrefetchLink
+                                key={item.path}
+                                href={item.path}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                onMouseEnter={() => prefetchRoute(item.path)}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 mb-1 ${pathname === item.path
+                                    ? 'bg-primary-500/10 text-primary-400 font-medium border border-primary-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                    }`}
+                            >
+                                <item.icon size={20} />
+                                <span className="flex items-center gap-2">
+                                    {item.label}
+                                    {item.badge && (
+                                        <span className="rounded-full bg-emerald-500/20 px-1 py-[1px] text-[8px] font-semibold uppercase tracking-wider text-emerald-200 border border-emerald-500/30">
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </span>
+                            </PrefetchLink>
+                        ))}
+                    </div>
+                </nav>
+
+                <div className="pt-4 mt-4 border-t border-white/5">
+                    <button
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/5"
+                        title="Sair"
+                    >
+                        <div className="w-9 h-9 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                            <span className="text-lg font-bold text-primary-400">
+                                {(companyName || 'SmartZap').charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                            <p className="text-sm font-medium text-white truncate">{companyName || 'SmartZap'}</p>
+                            <p className="text-xs text-gray-500 truncate">Administrador</p>
+                        </div>
+                        {isLoggingOut ? (
+                            <div className="w-4 h-4 border-2 border-gray-500 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <LogOut size={16} className="text-gray-500 hover:text-white transition-colors" />
+                        )}
+                    </button>
+
+                    <div className="mt-2 text-[10px] text-gray-700 text-center font-mono">
+                        v{process.env.NEXT_PUBLIC_APP_VERSION}
+                    </div>
+                </div>
+            </div>
+        </aside>
+    )
+
     if (isBuilderRoute) {
         return (
             <PageLayoutProvider>
@@ -637,8 +755,8 @@ export function DashboardShell({
                         "--border": "oklch(0.27 0 0)",
                     } as React.CSSProperties}
                 >
-                    {Sidebar}
-                    <div className="flex-1 min-w-0">
+                    {CompactSidebar}
+                    <div className="flex-1 min-w-0 lg:pl-14">
                         {children}
                     </div>
                 </div>
@@ -658,27 +776,23 @@ export function DashboardShell({
             )}
 
             {/* Sidebar */}
-            {isSidebarHidden && (
-                <button
-                    type="button"
-                    className="hidden lg:flex fixed left-2 top-4 z-50 h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-zinc-950 text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
-                    onClick={() => setIsSidebarHidden(false)}
-                    title="Expandir menu"
-                >
-                    <ChevronRight size={14} />
-                </button>
-            )}
-            {Sidebar}
+            {CompactSidebar}
+            {ExpandedSidebar}
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+            <div
+                className={cn(
+                    "flex-1 flex flex-col min-w-0 h-screen overflow-hidden",
+                    isSidebarExpanded ? "lg:pl-56" : "lg:pl-14"
+                )}
+            >
                 {/* Header */}
                 <header className="h-20 flex items-center justify-between px-6 lg:px-10 shrink-0">
                     <div className="flex items-center">
                         <button
                             className="lg:hidden p-2 text-gray-400 mr-4"
                             onClick={() => {
-                                setIsSidebarHidden(false)
+                                updateSidebarExpanded(true)
                                 setIsMobileMenuOpen(true)
                             }}
                         >

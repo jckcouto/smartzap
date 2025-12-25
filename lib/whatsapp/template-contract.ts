@@ -445,14 +445,77 @@ export function precheckContactForTemplate(
   return { ok: true, normalizedPhone, values }
 }
 
+type TemplateButtonInfo = {
+  index: number
+  button: TemplateButton
+}
+
+function collectTemplateButtons(components: TemplateComponent[]): TemplateButtonInfo[] {
+  const buttons: TemplateButtonInfo[] = []
+  let index = 0
+  for (const comp of components) {
+    if (comp.type !== 'BUTTONS') continue
+    const btns = (comp.buttons as TemplateButton[]) || []
+    for (const btn of btns) {
+      buttons.push({ index, button: btn })
+      index += 1
+    }
+  }
+  return buttons
+}
+
+function mapButtonSubType(buttonType?: TemplateButton['type']): string | null {
+  switch (buttonType) {
+    case 'URL':
+      return 'url'
+    case 'QUICK_REPLY':
+      return 'quick_reply'
+    case 'PHONE_NUMBER':
+      return 'phone_number'
+    case 'COPY_CODE':
+      return 'copy_code'
+    case 'OTP':
+      return 'otp'
+    case 'FLOW':
+      return 'flow'
+    case 'CATALOG':
+      return 'catalog'
+    case 'MPM':
+      return 'mpm'
+    case 'VOICE_CALL':
+      return 'voice_call'
+    case 'ORDER_DETAILS':
+      return 'order_details'
+    case 'SPM':
+      return 'spm'
+    case 'SEND_LOCATION':
+      return 'send_location'
+    case 'REMINDER':
+      return 'reminder'
+    case 'POSTBACK':
+      return 'postback'
+    case 'EXTENSION':
+      return 'extension'
+    default:
+      return null
+  }
+}
+
+function generateFlowToken(flowId?: string): string {
+  const seed = Math.random().toString(36).slice(2, 8)
+  const stamp = Date.now().toString(36)
+  return `smartzap:${flowId || 'flow'}:${stamp}:${seed}`
+}
+
 export function buildMetaTemplatePayload(input: {
   to: string
   templateName: string
   language: string
   parameterFormat: TemplateParameterFormat
   values: ResolvedTemplateValues
+  template?: Template
 }): any {
-  const { to, templateName, language, parameterFormat, values } = input
+  const { to, templateName, language, parameterFormat, values, template } = input
 
   const payload: any = {
     messaging_product: 'whatsapp',
@@ -487,12 +550,67 @@ export function buildMetaTemplatePayload(input: {
     })
   }
 
-  if (values.buttons?.length) {
+  const buttonParamsByIndex = new Map<number, Array<{ key: string; text: string }>>(
+    (values.buttons || []).map((b) => [b.index, b.params])
+  )
+
+  if (template?.components?.length) {
+    const templateButtons = collectTemplateButtons(template.components)
+    for (const entry of templateButtons) {
+      const subType = mapButtonSubType(entry.button.type)
+      if (!subType) continue
+
+      const params = buttonParamsByIndex.get(entry.index) || []
+      const component: any = {
+        type: 'button',
+        sub_type: subType,
+        index: String(entry.index),
+      }
+
+      if (subType === 'url') {
+        if (params.length) {
+          component.parameters = params.map((p) => ({ type: 'text', text: p.text }))
+        }
+      } else if (subType === 'quick_reply') {
+        if (params.length) {
+          component.parameters = params.map((p) => ({ type: 'payload', payload: p.text }))
+        }
+      } else if (subType === 'copy_code') {
+        if (params[0]?.text) {
+          component.parameters = [{ type: 'coupon_code', coupon_code: params[0].text }]
+        }
+      } else if (subType === 'flow') {
+        const flowId =
+          (entry.button.flow_id as string | undefined) ||
+          ((entry.button.action as any)?.flow_id as string | undefined)
+        const flowToken = params[0]?.text?.trim() || generateFlowToken(flowId)
+        const action: Record<string, unknown> = { flow_token: flowToken }
+        if (flowId) action.flow_id = flowId
+
+        const flowAction = (entry.button.action as any)?.flow_action
+        const flowActionPayload = (entry.button.action as any)?.flow_action_payload
+        if (flowAction) action.flow_action = flowAction
+        if (flowActionPayload) action.flow_action_payload = flowActionPayload
+
+        component.parameters = [{ type: 'action', action }]
+      } else if (subType === 'voice_call') {
+        if (entry.button.payload) {
+          component.parameters = [{ type: 'payload', payload: entry.button.payload }]
+        }
+      } else if (subType === 'order_details') {
+        if (entry.button.action) {
+          component.parameters = [{ type: 'action', action: entry.button.action }]
+        }
+      }
+
+      payload.template.components.push(component)
+    }
+  } else if (values.buttons?.length) {
     for (const btn of values.buttons) {
       payload.template.components.push({
         type: 'button',
         sub_type: 'url',
-        index: btn.index,
+        index: String(btn.index),
         parameters: btn.params.map((p) => ({ type: 'text', text: p.text })),
       })
     }

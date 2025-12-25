@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase";
 import {
-  deleteWorkflow,
-  ensureWorkflow,
-  updateWorkflow,
-} from "@/lib/builder/mock-workflow-store";
+  ensureWorkflowRecord,
+  getCompanyId,
+  toSavedWorkflow,
+  updateWorkflowRecord,
+} from "@/lib/builder/workflow-db";
 import {
   validateWorkflowSchema,
   WorkflowNodeTypeSchema,
@@ -20,12 +22,27 @@ type RouteParams = {
 
 export async function GET(_request: Request, { params }: RouteParams) {
   const { workflowId } = await params;
-  const workflow = ensureWorkflow(workflowId);
-  return NextResponse.json(workflow);
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 400 }
+    );
+  }
+  const companyId = await getCompanyId(supabase);
+  const record = await ensureWorkflowRecord(supabase, workflowId, companyId);
+  return NextResponse.json(toSavedWorkflow(record));
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
   const { workflowId } = await params;
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 400 }
+    );
+  }
   const body = await request.json().catch(() => ({}));
   const normalized = normalizeWorkflowPatch(body);
   const validation = validateWorkflowSchema(normalized);
@@ -35,19 +52,28 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       { status: 400 }
     );
   }
-  const workflow = updateWorkflow(workflowId, {
+  await updateWorkflowRecord(supabase, workflowId, {
     name: normalized?.name,
     description: normalized?.description,
     nodes: normalized?.nodes,
     edges: normalized?.edges,
     visibility: normalized?.visibility,
   });
-  return NextResponse.json(workflow);
+  const companyId = await getCompanyId(supabase);
+  const record = await ensureWorkflowRecord(supabase, workflowId, companyId);
+  return NextResponse.json(toSavedWorkflow(record));
 }
 
 export async function DELETE(_request: Request, { params }: RouteParams) {
   const { workflowId } = await params;
-  deleteWorkflow(workflowId);
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 400 }
+    );
+  }
+  await supabase.from("workflows").delete().eq("id", workflowId);
   return NextResponse.json({ success: true });
 }
 

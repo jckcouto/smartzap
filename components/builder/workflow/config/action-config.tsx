@@ -39,6 +39,7 @@ import {
 } from "@/lib/builder/plugins";
 import { ActionConfigRenderer } from "./action-config-renderer";
 import { SchemaBuilder, type SchemaField } from "./schema-builder";
+import { WhatsAppPreview } from "./whatsapp-preview";
 
 type ActionConfigProps = {
   config: Record<string, unknown>;
@@ -219,6 +220,124 @@ function ConditionFields({
   );
 }
 
+function DelayFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="delayMs">Delay (ms)</Label>
+      <Input
+        disabled={disabled}
+        id="delayMs"
+        onChange={(e) => onUpdateConfig("delayMs", e.target.value)}
+        placeholder="1000"
+        value={(config?.delayMs as string) || ""}
+      />
+      <p className="text-muted-foreground text-xs">
+        Wait before continuing to the next node.
+      </p>
+    </div>
+  );
+}
+
+function VariableFields({
+  config,
+  onUpdateConfig,
+  disabled,
+  mode,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+  mode: "set" | "get";
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="variableKey">Variable Key</Label>
+      <Input
+        disabled={disabled}
+        id="variableKey"
+        onChange={(e) => onUpdateConfig("variableKey", e.target.value)}
+        placeholder="leadName"
+        value={(config?.variableKey as string) || ""}
+      />
+      {mode === "set" && (
+        <>
+          <Label htmlFor="variableValue">Value</Label>
+          <TemplateBadgeInput
+            disabled={disabled}
+            id="variableValue"
+            onChange={(value) => onUpdateConfig("variableValue", value)}
+            placeholder="Value or template"
+            value={(config?.variableValue as string) || ""}
+          />
+        </>
+      )}
+      <p className="text-muted-foreground text-xs">
+        {mode === "set"
+          ? "Stores a value that can be used by later nodes."
+          : "Reads a value stored earlier in the workflow."}
+      </p>
+    </div>
+  );
+}
+
+function ExecutionFields({
+  config,
+  onUpdateConfig,
+  disabled,
+}: {
+  config: Record<string, unknown>;
+  onUpdateConfig: (key: string, value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border border-white/10 bg-black/40 p-4">
+      <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        Execução
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="retryCount">Retries</Label>
+          <Input
+            disabled={disabled}
+            id="retryCount"
+            onChange={(e) => onUpdateConfig("retryCount", e.target.value)}
+            placeholder="0"
+            value={(config?.retryCount as string) || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="retryDelayMs">Delay (ms)</Label>
+          <Input
+            disabled={disabled}
+            id="retryDelayMs"
+            onChange={(e) => onUpdateConfig("retryDelayMs", e.target.value)}
+            placeholder="500"
+            value={(config?.retryDelayMs as string) || ""}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="timeoutMs">Timeout (ms)</Label>
+          <Input
+            disabled={disabled}
+            id="timeoutMs"
+            onChange={(e) => onUpdateConfig("timeoutMs", e.target.value)}
+            placeholder="10000"
+            value={(config?.timeoutMs as string) || ""}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // System action fields wrapper - extracts conditional rendering to reduce complexity
 function SystemActionFields({
   actionType,
@@ -254,6 +373,32 @@ function SystemActionFields({
           config={config}
           disabled={disabled}
           onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Delay":
+      return (
+        <DelayFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+    case "Set Variable":
+      return (
+        <VariableFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+          mode="set"
+        />
+      );
+    case "Get Variable":
+      return (
+        <VariableFields
+          config={config}
+          disabled={disabled}
+          onUpdateConfig={onUpdateConfig}
+          mode="get"
         />
       );
     default:
@@ -543,14 +688,27 @@ export function ActionConfig({
         onUpdateConfig={onUpdateConfig}
       />
 
-      {/* Plugin actions - declarative config fields */}
-      {pluginAction && !SYSTEM_ACTION_IDS.includes(actionType) && (
-        <ActionConfigRenderer
+      {actionType && (
+        <ExecutionFields
           config={config}
           disabled={disabled}
-          fields={pluginAction.configFields}
-          onUpdateConfig={handlePluginUpdateConfig}
+          onUpdateConfig={onUpdateConfig}
         />
+      )}
+
+      {/* Plugin actions - declarative config fields */}
+      {pluginAction && !SYSTEM_ACTION_IDS.includes(actionType) && (
+        <div className="space-y-4">
+          <ActionConfigRenderer
+            config={config}
+            disabled={disabled}
+            fields={pluginAction.configFields}
+            onUpdateConfig={handlePluginUpdateConfig}
+          />
+          {pluginAction.integration === "whatsapp" && (
+            <WhatsAppPreview actionType={actionType} config={config} />
+          )}
+        </div>
       )}
     </>
   );

@@ -712,6 +712,7 @@ export const { POST } = serve<CampaignWorkflowInput>(
               language: (template as any).language || 'pt_BR',
               parameterFormat: (template as any).parameter_format || (template as any).parameterFormat || 'positional',
               values: precheck.values,
+              template: template as any,
             })
 
             if (process.env.DEBUG_META_PAYLOAD === '1') {

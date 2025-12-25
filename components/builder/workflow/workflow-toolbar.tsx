@@ -690,6 +690,11 @@ function useWorkflowState() {
 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+  const [versions, setVersions] = useState<
+    Array<{ id: string; version: number; status: string }>
+  >([]);
   const [allWorkflows, setAllWorkflows] = useState<
     Array<{
       id: string;
@@ -710,6 +715,30 @@ function useWorkflowState() {
     };
     loadAllWorkflows();
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const loadVersions = async () => {
+      if (!currentWorkflowId) return;
+      try {
+        const data = await api.workflow.getVersions(currentWorkflowId);
+        if (!isActive) return;
+        setVersions(
+          data.map((version) => ({
+            id: version.id,
+            version: version.version,
+            status: version.status,
+          }))
+        );
+      } catch (error) {
+        console.error("Failed to load workflow versions:", error);
+      }
+    };
+    loadVersions();
+    return () => {
+      isActive = false;
+    };
+  }, [currentWorkflowId]);
 
   return {
     nodes,
@@ -740,6 +769,12 @@ function useWorkflowState() {
     setIsDownloading,
     isDuplicating,
     setIsDuplicating,
+    isPublishing,
+    setIsPublishing,
+    isRollingBack,
+    setIsRollingBack,
+    versions,
+    setVersions,
     allWorkflows,
     setAllWorkflows,
     setActiveTab,
@@ -771,6 +806,10 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     setAllWorkflows,
     setIsDownloading,
     setIsDuplicating,
+    setIsPublishing,
+    setIsRollingBack,
+    versions,
+    setVersions,
     setActiveTab,
     setNodes,
     setEdges,
@@ -904,6 +943,48 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     }
   };
 
+  const handlePublish = async () => {
+    if (!currentWorkflowId) return;
+    setIsPublishing(true);
+    try {
+      await api.workflow.publish(currentWorkflowId);
+      toast.success("Workflow publicado");
+      const data = await api.workflow.getVersions(currentWorkflowId);
+      setVersions(
+        data.map((version) => ({
+          id: version.id,
+          version: version.version,
+          status: version.status,
+        }))
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao publicar");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleRollback = async (versionId: string) => {
+    if (!currentWorkflowId) return;
+    setIsRollingBack(true);
+    try {
+      await api.workflow.rollback(currentWorkflowId, versionId);
+      toast.success("Rollback aplicado");
+      const data = await api.workflow.getVersions(currentWorkflowId);
+      setVersions(
+        data.map((version) => ({
+          id: version.id,
+          version: version.version,
+          status: version.status,
+        }))
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha no rollback");
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
   const handleToggleVisibility = async (newVisibility: WorkflowVisibility) => {
     if (!currentWorkflowId) {
       return;
@@ -973,8 +1054,13 @@ function useWorkflowActions(state: ReturnType<typeof useWorkflowState>) {
     handleDeleteWorkflow,
     handleDownload,
     loadWorkflows,
+    handlePublish,
+    handleRollback,
     handleToggleVisibility,
     handleDuplicate,
+    versions,
+    isPublishing: state.isPublishing,
+    isRollingBack: state.isRollingBack,
   };
 }
 
@@ -1202,12 +1288,34 @@ function ToolbarActions({
       <ButtonGroup className="flex lg:hidden" orientation="vertical">
         <SaveButton handleSave={actions.handleSave} state={state} />
         <DownloadButton actions={actions} state={state} />
+        <PublishButton
+          isPublishing={actions.isPublishing}
+          onPublish={actions.handlePublish}
+          disabled={!state.currentWorkflowId}
+        />
+        <VersionsButton
+          versions={actions.versions}
+          disabled={!state.currentWorkflowId}
+          isRollingBack={actions.isRollingBack}
+          onRollback={actions.handleRollback}
+        />
       </ButtonGroup>
 
       {/* Save/Download - Desktop Horizontal */}
       <ButtonGroup className="hidden lg:flex" orientation="horizontal">
         <SaveButton handleSave={actions.handleSave} state={state} />
         <DownloadButton actions={actions} state={state} />
+        <PublishButton
+          isPublishing={actions.isPublishing}
+          onPublish={actions.handlePublish}
+          disabled={!state.currentWorkflowId}
+        />
+        <VersionsButton
+          versions={actions.versions}
+          disabled={!state.currentWorkflowId}
+          isRollingBack={actions.isRollingBack}
+          onRollback={actions.handleRollback}
+        />
       </ButtonGroup>
 
       {/* Visibility Toggle */}
@@ -1290,6 +1398,75 @@ function DownloadButton({
         <Download className="size-4" />
       )}
     </Button>
+  );
+}
+
+function PublishButton({
+  onPublish,
+  isPublishing,
+  disabled,
+}: {
+  onPublish: () => void;
+  isPublishing: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Button
+      className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"
+      disabled={disabled || isPublishing}
+      onClick={onPublish}
+      size="icon"
+      title="Publicar workflow"
+      variant="secondary"
+    >
+      {isPublishing ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Check className="size-4" />
+      )}
+    </Button>
+  );
+}
+
+function VersionsButton({
+  versions,
+  onRollback,
+  disabled,
+  isRollingBack,
+}: {
+  versions: Array<{ id: string; version: number; status: string }>;
+  onRollback: (versionId: string) => void;
+  disabled?: boolean;
+  isRollingBack: boolean;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"
+          disabled={disabled}
+          size="icon"
+          title="Versões"
+          variant="secondary"
+        >
+          <Settings2 className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {versions.length === 0 && (
+          <DropdownMenuItem disabled>Nenhuma versão</DropdownMenuItem>
+        )}
+        {versions.map((version) => (
+          <DropdownMenuItem
+            key={version.id}
+            onClick={() => onRollback(version.id)}
+            disabled={isRollingBack || version.status === "published"}
+          >
+            v{version.version} · {version.status}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

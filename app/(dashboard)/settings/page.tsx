@@ -107,11 +107,6 @@ export default function SettingsPage() {
             autoSuppressionLoading={controller.autoSuppressionLoading}
             saveAutoSuppression={controller.saveAutoSuppression}
             isSavingAutoSuppression={controller.isSavingAutoSuppression}
-
-            // Workflow Builder default
-            workflowBuilderDefault={controller.workflowBuilderDefault}
-            workflowBuilderDefaultLoading={controller.workflowBuilderDefaultLoading}
-            saveWorkflowBuilderDefault={controller.saveWorkflowBuilderDefault}
             hideHeader
           />
         </div>

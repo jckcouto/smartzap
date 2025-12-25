@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { ensureWorkflow } from "@/lib/builder/mock-workflow-store";
+import { ensureWorkflowRecord, getCompanyId } from "@/lib/builder/workflow-db";
 
 type RouteParams = {
   params: Promise<{ executionId: string }>;
 };
 
-export async function GET(_request: Request, { params }: RouteParams) {
+export async function GET(request: Request, { params }: RouteParams) {
   const { executionId } = await params;
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return NextResponse.json({ execution: null, logs: [] });
   }
 
+  const statusFilter = new URL(request.url).searchParams.get("status");
+
   const { data: execution, error: execError } = await supabase
-    .from("workflow_builder_executions")
+    .from("workflow_runs")
     .select("*")
     .eq("id", executionId)
     .single();
@@ -23,17 +25,28 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ execution: null, logs: [] });
   }
 
-  const { data: logs } = await supabase
-    .from("workflow_builder_logs")
+  let logsQuery = supabase
+    .from("workflow_run_logs")
     .select("*")
-    .eq("execution_id", executionId)
+    .eq("run_id", executionId)
     .order("started_at", { ascending: true });
 
-  const workflow = ensureWorkflow(execution.workflow_id);
+  if (statusFilter) {
+    logsQuery = logsQuery.eq("status", statusFilter);
+  }
+
+  const { data: logs } = await logsQuery;
+
+  const companyId = await getCompanyId(supabase);
+  const workflowRecord = await ensureWorkflowRecord(
+    supabase,
+    execution.workflow_id,
+    companyId
+  );
 
   const mappedLogs = (logs || []).map((log) => ({
     id: String(log.id),
-    executionId: log.execution_id,
+    executionId: log.run_id,
     nodeId: log.node_id,
     nodeName: log.node_name || "",
     nodeType: log.node_type || "",
@@ -50,8 +63,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
     execution: {
       id: execution.id,
       workflow: {
-        nodes: workflow.nodes,
-        edges: workflow.edges,
+        nodes: workflowRecord.version.nodes,
+        edges: workflowRecord.version.edges,
       },
     },
     logs: mappedLogs,

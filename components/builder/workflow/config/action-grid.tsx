@@ -59,6 +59,24 @@ const SYSTEM_ACTIONS: ActionType[] = [
     description: "Branch based on a condition",
     category: "System",
   },
+  {
+    id: "Delay",
+    label: "Delay",
+    description: "Wait for a specified time",
+    category: "System",
+  },
+  {
+    id: "Set Variable",
+    label: "Set Variable",
+    description: "Store a value for later steps",
+    category: "System",
+  },
+  {
+    id: "Get Variable",
+    label: "Get Variable",
+    description: "Read a stored variable",
+    category: "System",
+  },
 ];
 
 // Combine System actions with plugin actions

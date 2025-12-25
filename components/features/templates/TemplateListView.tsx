@@ -5,6 +5,7 @@ import { Template, TemplateStatus } from '../../../types';
 import { UTILITY_CATEGORIES } from '../../../hooks/useTemplates';
 import { UtilityCategory, GeneratedTemplate } from '../../../services/templateService';
 import { BulkGenerationModal } from './BulkGenerationModal';
+import { TemplatePreviewCard } from '@/components/ui/TemplatePreviewCard';
 
 const StatusBadge = ({ status }: { status: TemplateStatus }) => {
   const styles = {
@@ -232,6 +233,9 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
   onConfirmBulkDeleteDrafts,
   hideHeader = false,
 }) => {
+
+  const [hoveredTemplate, setHoveredTemplate] = React.useState<Template | null>(null);
+  const previewVariables = ['João', '19:00', '01/12', 'R$ 99,90', '#12345'];
 
   const isManualDraft = (t: Template) => manualDraftIds?.has(t.id);
   const selectableMetaTemplates = templates.filter((t) => !isManualDraft(t));
@@ -518,6 +522,8 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
                     return (
                   <tr
                     key={template.id}
+                    onMouseEnter={() => setHoveredTemplate(template)}
+                    onMouseLeave={() => setHoveredTemplate((current) => (current?.id === template.id ? null : current))}
                     className={`hover:bg-white/5 transition-colors group cursor-pointer ${isRowSelected ? (manual ? 'bg-amber-500/5' : 'bg-emerald-500/5') : ''
                       }`}
                   >
@@ -678,6 +684,19 @@ export const TemplateListView: React.FC<TemplateListViewProps> = ({
           </table>
         </div>
       </div>
+
+      {hoveredTemplate && (
+        <div className="pointer-events-none hidden xl:block fixed right-8 top-32 z-40 w-[360px]">
+          <TemplatePreviewCard
+            templateName={hoveredTemplate.name}
+            components={hoveredTemplate.components}
+            fallbackContent={hoveredTemplate.content}
+            parameterFormat={hoveredTemplate.parameterFormat || 'positional'}
+            variables={previewVariables}
+            className="bg-zinc-950/80"
+          />
+        </div>
+      )}
 
       {/* --- DETAILS MODAL --- */}
       {isDetailsModalOpen && selectedTemplate && (() => {

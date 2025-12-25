@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Page, PageHeader, PageTitle, PageDescription } from '@/components/ui/page'
 import { manualDraftsService } from '@/services/manualDraftsService'
 import { ManualTemplateBuilder } from '@/components/features/templates/ManualTemplateBuilder'
+import { CreateTemplateSchema } from '@/lib/whatsapp/validators/template.schema'
 
 export default function ManualDraftEditorPage({
   params,
@@ -78,15 +79,26 @@ export default function ManualDraftEditorPage({
     if (name && !/^[a-z0-9_]+$/.test(name)) issues.push('Nome inválido (use apenas a-z, 0-9 e _)')
     if (!bodyText.trim()) issues.push('Corpo é obrigatório')
 
+    if (!issues.length) {
+      const parsed = CreateTemplateSchema.safeParse(spec)
+      if (!parsed.success) {
+        const schemaIssues = parsed.error.issues.map((issue) => issue.message).filter(Boolean)
+        issues.push(...schemaIssues)
+      }
+    }
+
     return {
       canSend: issues.length === 0,
-      issues,
+      issues: Array.from(new Set(issues)),
     }
   })()
 
   const handleSend = async () => {
     if (!validation.canSend) {
-      toast.error(validation.issues[0] || 'Revise o template antes de enviar')
+      const message = validation.issues.length ? validation.issues.join('\n') : 'Revise o template antes de enviar'
+      toast.error('Revise o template antes de enviar', {
+        description: message,
+      })
       return
     }
 

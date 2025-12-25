@@ -30,6 +30,7 @@ import { shouldProcessWhatsAppStatusEvent } from '@/lib/whatsapp-webhook-dedupe'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { applyFlowMappingToContact } from '@/lib/flow-mapping'
 import { settingsDb } from '@/lib/supabase-db'
+import { ensureWorkflowRecord, getCompanyId } from '@/lib/builder/workflow-db'
 
 // Get WhatsApp Access Token from centralized helper
 async function getWhatsAppAccessToken(): Promise<string | null> {
@@ -144,6 +145,65 @@ function safeParseJson(raw: unknown): unknown | null {
   }
 }
 
+function normalizeInboundText(input: string): string {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+}
+
+type KeywordWorkflow = {
+  workflowId: string
+  keywords: string[]
+}
+
+async function loadKeywordWorkflows(
+  excludeWorkflowId: string | null
+): Promise<KeywordWorkflow[]> {
+  const { data } = await supabase
+    .from('workflow_versions')
+    .select('workflow_id, nodes, published_at')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+
+  return (data || [])
+    .filter((version: any) => version?.workflow_id && version?.nodes)
+    .filter((version: any) => version.workflow_id !== excludeWorkflowId)
+    .map((version: any) => {
+      const triggerNode = (version.nodes as any[]).find(
+        (node) => node?.data?.type === 'trigger'
+      )
+      const triggerType = triggerNode?.data?.config?.triggerType
+      if (triggerType !== 'Keywords') return null
+      const keywordListRaw = triggerNode?.data?.config?.keywordList as string | undefined
+      const keywords = (keywordListRaw || '')
+        .split(/\r?\n/)
+        .map((entry) => normalizeInboundText(entry))
+        .filter(Boolean)
+      if (!version.workflow_id || keywords.length === 0) return null
+      return {
+        workflowId: version.workflow_id,
+        keywords,
+      }
+    })
+    .filter((entry): entry is KeywordWorkflow => Boolean(entry))
+}
+
+function findMatchingWorkflow(
+  workflows: KeywordWorkflow[],
+  message: string
+): string | null {
+  const normalizedMessage = normalizeInboundText(message)
+  if (!normalizedMessage) return null
+  for (const workflow of workflows) {
+    if (workflow.keywords.some((keyword) => keyword === normalizedMessage)) {
+      return workflow.workflowId
+    }
+  }
+  return null
+}
+
 function isMissingColumnError(e: unknown, columnName: string): boolean {
   const msg = e instanceof Error ? e.message : String((e as any)?.message || e || '')
   return msg.toLowerCase().includes('column') && msg.toLowerCase().includes(columnName.toLowerCase())
@@ -213,6 +273,12 @@ export async function POST(request: NextRequest) {
     object: body?.object,
     entryCount: Array.isArray(body?.entry) ? body.entry.length : 0,
   }))
+
+  const defaultWorkflowId =
+    (await settingsDb.get('workflow_builder_default_id')) ||
+    process.env.WORKFLOW_BUILDER_DEFAULT_ID ||
+    null
+  const keywordWorkflows = await loadKeywordWorkflows(defaultWorkflowId)
 
   try {
     const entries = body.entry || []
@@ -544,17 +610,20 @@ export async function POST(request: NextRequest) {
           // =================================================================
           // Workflow Builder (MVP): run default workflow on inbound text
           // =================================================================
-          const defaultWorkflowId =
-            (await settingsDb.get('workflow_builder_default_id')) ||
-            process.env.WORKFLOW_BUILDER_DEFAULT_ID
-          if (defaultWorkflowId && text && from) {
+          const matchedWorkflowId = findMatchingWorkflow(keywordWorkflows, text)
+          const targetWorkflowId = matchedWorkflowId || defaultWorkflowId
+
+          if (targetWorkflowId && text && from) {
             try {
+              const companyId = await getCompanyId(supabase)
+              await ensureWorkflowRecord(supabase, targetWorkflowId, companyId)
+
               const origin = request.nextUrl.origin
-              await fetch(`${origin}/api/builder/workflow/${defaultWorkflowId}/execute`, {
+              await fetch(`${origin}/api/builder/workflow/${targetWorkflowId}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  workflowId: defaultWorkflowId,
+                  workflowId: targetWorkflowId,
                   input: { to: from, message: text },
                 }),
               })

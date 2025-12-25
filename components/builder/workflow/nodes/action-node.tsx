@@ -76,6 +76,9 @@ const SYSTEM_ACTION_LABELS: Record<string, string> = {
   "Database Query": "Database",
   Condition: "Condition",
   "Execute Code": "System",
+  Delay: "Delay",
+  "Set Variable": "Variables",
+  "Get Variable": "Variables",
 };
 
 // Helper to get integration name from action type
@@ -131,6 +134,11 @@ const getProviderLogo = (actionType: string) => {
       return <Code className="size-12 text-green-300" strokeWidth={1.5} />;
     case "Condition":
       return <GitBranch className="size-12 text-pink-300" strokeWidth={1.5} />;
+    case "Delay":
+      return <AlertTriangle className="size-12 text-yellow-300" strokeWidth={1.5} />;
+    case "Set Variable":
+    case "Get Variable":
+      return <Code className="size-12 text-cyan-300" strokeWidth={1.5} />;
     default:
       // Not a system action, continue to check plugin registry
       break;

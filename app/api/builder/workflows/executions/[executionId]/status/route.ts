@@ -13,15 +13,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 
   const { data: execution } = await supabase
-    .from("workflow_builder_executions")
+    .from("workflow_runs")
     .select("status")
     .eq("id", executionId)
     .single();
 
   const { data: logs } = await supabase
-    .from("workflow_builder_logs")
+    .from("workflow_run_logs")
     .select("node_id,status,started_at")
-    .eq("execution_id", executionId);
+    .eq("run_id", executionId);
 
   const nodeStatuses = new Map<string, { status: string; started_at: string }>();
   for (const log of logs || []) {

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link';
 import { AlertTriangle, Calendar, HelpCircle, Save, RefreshCw, Wifi, Edit2, Shield, AlertCircle, UserCheck, Smartphone, X, Copy, Check, ExternalLink, Webhook, Clock, Phone, Trash2, Loader2, ChevronDown, ChevronUp, Zap, ArrowDown, CheckCircle2, Circle, Lock, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
-import { AppSettings, CalendarBookingConfig } from '../../../types';
+import { AppSettings, CalendarBookingConfig, WorkflowExecutionConfig } from '../../../types';
 import { AccountLimits } from '../../../lib/meta-limits';
 import { PhoneNumber } from '../../../hooks/useSettings';
 import { AISettings } from './AISettings';
@@ -216,6 +216,16 @@ interface SettingsViewProps {
   saveCalendarBooking?: (data: Partial<CalendarBookingConfig>) => Promise<void>;
   isSavingCalendarBooking?: boolean;
 
+  // Workflow Execution (global)
+  workflowExecution?: {
+    ok: boolean;
+    source: 'db' | 'env';
+    config: WorkflowExecutionConfig;
+  } | null;
+  workflowExecutionLoading?: boolean;
+  saveWorkflowExecution?: (data: Partial<WorkflowExecutionConfig>) => Promise<WorkflowExecutionConfig | void>;
+  isSavingWorkflowExecution?: boolean;
+
   // Workflow Builder default
 }
 
@@ -288,6 +298,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   calendarBookingLoading,
   saveCalendarBooking,
   isSavingCalendarBooking,
+
+  // Workflow Execution (global)
+  workflowExecution,
+  workflowExecutionLoading,
+  saveWorkflowExecution,
+  isSavingWorkflowExecution,
 
 }) => {
   // Always start collapsed
@@ -477,6 +493,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     },
   }));
 
+  // Workflow execution (global)
+  const workflowExecutionConfig = workflowExecution?.config;
+  const [isEditingWorkflowExecution, setIsEditingWorkflowExecution] = useState(false);
+  const [workflowExecutionDraft, setWorkflowExecutionDraft] = useState(() => ({
+    retryCount: workflowExecutionConfig?.retryCount ?? 0,
+    retryDelayMs: workflowExecutionConfig?.retryDelayMs ?? 500,
+    timeoutMs: workflowExecutionConfig?.timeoutMs ?? 10000,
+  }));
+
+  useEffect(() => {
+    if (isEditingWorkflowExecution) return;
+    if (!workflowExecution?.config) return;
+    setWorkflowExecutionDraft({
+      retryCount: workflowExecution.config.retryCount,
+      retryDelayMs: workflowExecution.config.retryDelayMs,
+      timeoutMs: workflowExecution.config.timeoutMs,
+    });
+  }, [
+    workflowExecution?.config?.retryCount,
+    workflowExecution?.config?.retryDelayMs,
+    workflowExecution?.config?.timeoutMs,
+    isEditingWorkflowExecution,
+  ]);
+
   // Calendar Booking form state
   const calendarConfig = calendarBooking?.config || CALENDAR_BOOKING_FALLBACK;
   const [isEditingCalendarBooking, setIsEditingCalendarBooking] = useState(false);
@@ -487,6 +527,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       calendarId?: string | null;
       calendarSummary?: string | null;
       calendarTimeZone?: string | null;
+      accountEmail?: string | null;
     } | null;
     channel?: {
       id?: string;
@@ -498,12 +539,57 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   } | null>(null);
   const [calendarAuthLoading, setCalendarAuthLoading] = useState(false);
   const [calendarAuthError, setCalendarAuthError] = useState<string | null>(null);
+  const [calendarCredsStatus, setCalendarCredsStatus] = useState<{
+    clientId: string | null;
+    source: 'db' | 'env' | 'none';
+    hasClientSecret: boolean;
+    isConfigured: boolean;
+  } | null>(null);
+  const [calendarCredsLoading, setCalendarCredsLoading] = useState(false);
+  const [calendarCredsSaving, setCalendarCredsSaving] = useState(false);
+  const [calendarCredsError, setCalendarCredsError] = useState<string | null>(null);
+  const [calendarClientIdDraft, setCalendarClientIdDraft] = useState('');
+  const [calendarClientSecretDraft, setCalendarClientSecretDraft] = useState('');
+  const [appOrigin, setAppOrigin] = useState('');
+  const [isCalendarWizardOpen, setIsCalendarWizardOpen] = useState(false);
+  const [calendarWizardStep, setCalendarWizardStep] = useState(0);
+  const [calendarWizardError, setCalendarWizardError] = useState<string | null>(null);
+  const [calendarConnectLoading, setCalendarConnectLoading] = useState(false);
+  const [calendarTestLoading, setCalendarTestLoading] = useState(false);
+  const [calendarTestResult, setCalendarTestResult] = useState<{ ok: boolean; link?: string | null } | null>(null);
+  const [calendarBaseUrlDraft, setCalendarBaseUrlDraft] = useState('');
+  const [calendarBaseUrlEditing, setCalendarBaseUrlEditing] = useState(false);
+  const [calendarList, setCalendarList] = useState<Array<{ id: string; summary: string; timeZone?: string | null; primary?: boolean }>>([]);
+  const [calendarListLoading, setCalendarListLoading] = useState(false);
+  const [calendarListError, setCalendarListError] = useState<string | null>(null);
+  const [calendarSelectionId, setCalendarSelectionId] = useState('');
+  const [calendarSelectionSaving, setCalendarSelectionSaving] = useState(false);
+  const [calendarListQuery, setCalendarListQuery] = useState('');
 
   useEffect(() => {
     if (!isEditingCalendarBooking) {
       setCalendarDraft(calendarConfig);
     }
   }, [calendarConfig, isEditingCalendarBooking]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setAppOrigin(window.location.origin);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!appOrigin) return;
+    setCalendarBaseUrlDraft((prev) => prev || appOrigin);
+  }, [appOrigin]);
+
+  useEffect(() => {
+    const calendarId = calendarAuthStatus?.calendar?.calendarId;
+    if (calendarId) {
+      setCalendarSelectionId(calendarId);
+    }
+  }, [calendarAuthStatus?.calendar?.calendarId]);
+
 
   const fetchCalendarAuthStatus = useCallback(async () => {
     if (!settings.isConnected) return;
@@ -519,15 +605,89 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao carregar status';
       setCalendarAuthError(message);
+      setCalendarWizardError(message);
       setCalendarAuthStatus(null);
     } finally {
       setCalendarAuthLoading(false);
     }
   }, [settings.isConnected]);
 
+  const fetchCalendarCredsStatus = useCallback(async () => {
+    setCalendarCredsLoading(true);
+    setCalendarCredsError(null);
+    try {
+      const response = await fetch('/api/settings/google-calendar');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Falha ao carregar credenciais');
+      }
+      setCalendarCredsStatus(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao carregar credenciais';
+      setCalendarCredsError(message);
+      setCalendarCredsStatus(null);
+    } finally {
+      setCalendarCredsLoading(false);
+    }
+  }, []);
+
+  const fetchCalendarList = useCallback(async () => {
+    if (!calendarAuthStatus?.connected) return;
+    setCalendarListLoading(true);
+    setCalendarListError(null);
+    try {
+      const response = await fetch('/api/integrations/google-calendar/calendars');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Falha ao listar calendarios');
+      }
+      const calendars = Array.isArray((data as any)?.calendars) ? (data as any).calendars : [];
+      const sortedCalendars = [...calendars].sort((a, b) => {
+        const aPrimary = Boolean(a?.primary);
+        const bPrimary = Boolean(b?.primary);
+        if (aPrimary !== bPrimary) return aPrimary ? -1 : 1;
+        const aLabel = String(a?.summary || a?.id || '');
+        const bLabel = String(b?.summary || b?.id || '');
+        return aLabel.localeCompare(bLabel, 'pt-BR');
+      });
+      setCalendarList(sortedCalendars);
+      if (!calendarSelectionId && sortedCalendars.length) {
+        setCalendarSelectionId(String(sortedCalendars[0].id));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao listar calendarios';
+      setCalendarListError(message);
+      setCalendarWizardError(message);
+      setCalendarList([]);
+    } finally {
+      setCalendarListLoading(false);
+    }
+  }, [calendarAuthStatus?.connected, calendarSelectionId]);
+
   useEffect(() => {
     fetchCalendarAuthStatus();
   }, [fetchCalendarAuthStatus]);
+
+  useEffect(() => {
+    fetchCalendarCredsStatus();
+  }, [fetchCalendarCredsStatus]);
+
+  useEffect(() => {
+    if (isCalendarWizardOpen && calendarAuthStatus?.connected) {
+      fetchCalendarList();
+    }
+  }, [isCalendarWizardOpen, calendarAuthStatus?.connected, fetchCalendarList]);
+
+  useEffect(() => {
+    if (calendarAuthStatus?.connected) {
+      setCalendarConnectLoading(false);
+    }
+  }, [calendarAuthStatus?.connected]);
+
+  useEffect(() => {
+    setCalendarClientIdDraft(calendarCredsStatus?.clientId || '');
+    setCalendarClientSecretDraft('');
+  }, [calendarCredsStatus]);
 
   const updateCalendarDraft = (patch: Partial<CalendarBookingConfig>) => {
     setCalendarDraft((prev) => ({ ...prev, ...patch }));
@@ -551,7 +711,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleConnectCalendar = () => {
-    window.location.href = '/api/integrations/google-calendar/connect?returnTo=/settings';
+    setCalendarConnectLoading(true);
+    setCalendarWizardError(null);
+    window.location.href = '/api/integrations/google-calendar/connect?returnTo=/settings?gc=1';
   };
 
   const handleDisconnectCalendar = async () => {
@@ -573,6 +735,342 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setCalendarAuthLoading(false);
     }
   };
+
+  const handleSaveCalendarCreds = async () => {
+    setCalendarWizardError(null);
+    if (!calendarCredsFormValid) {
+      setCalendarWizardError('Informe um Client ID e Client Secret validos.');
+      return;
+    }
+
+    setCalendarCredsSaving(true);
+    setCalendarCredsError(null);
+    try {
+      const response = await fetch('/api/settings/google-calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: calendarClientIdDraft.trim(),
+          clientSecret: calendarClientSecretDraft.trim(),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Falha ao salvar credenciais');
+      }
+      toast.success('Credenciais salvas.');
+      await fetchCalendarCredsStatus();
+      setCalendarWizardStep((prev) => (prev < 2 ? 2 : prev));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao salvar credenciais';
+      setCalendarCredsError(message);
+      setCalendarWizardError(message);
+      toast.error(message);
+    } finally {
+      setCalendarCredsSaving(false);
+    }
+  };
+
+  const handleRemoveCalendarCreds = async () => {
+    setCalendarCredsSaving(true);
+    setCalendarCredsError(null);
+    try {
+      const response = await fetch('/api/settings/google-calendar', { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Falha ao remover credenciais');
+      }
+      toast.success('Credenciais removidas.');
+      await fetchCalendarCredsStatus();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao remover credenciais';
+      setCalendarCredsError(message);
+      setCalendarWizardError(message);
+      toast.error(message);
+    } finally {
+      setCalendarCredsSaving(false);
+    }
+  };
+
+  const handleSaveCalendarSelection = async (): Promise<boolean> => {
+    if (!calendarSelectionId) {
+      setCalendarWizardError('Selecione um calendario.');
+      return false;
+    }
+    setCalendarSelectionSaving(true);
+    setCalendarListError(null);
+    setCalendarWizardError(null);
+    try {
+      const response = await fetch('/api/integrations/google-calendar/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendarId: calendarSelectionId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Falha ao salvar calendario');
+      }
+      toast.success('Calendario atualizado');
+      await fetchCalendarAuthStatus();
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao salvar calendario';
+      setCalendarListError(message);
+      setCalendarWizardError(message);
+      toast.error(message);
+      return false;
+    } finally {
+      setCalendarSelectionSaving(false);
+    }
+  };
+
+  const handlePrimaryCalendarAction = () => {
+    setCalendarWizardError(null);
+    setCalendarConnectLoading(false);
+    setCalendarWizardStep(calendarStep === 3 ? 3 : calendarStep === 2 ? 2 : 0);
+    setIsCalendarWizardOpen(true);
+  };
+
+  const handleCopyCalendarValue = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copiado`);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      toast.error(`Nao foi possivel copiar ${label}`);
+    }
+  };
+
+  const handleCopyCalendarBundle = async () => {
+    const bundle = `Redirect URI: ${calendarRedirectUrl}\nWebhook URL: ${calendarWebhookUrl}`;
+    await handleCopyCalendarValue(bundle, 'URLs');
+  };
+
+  const handleCalendarTestEvent = async (): Promise<boolean> => {
+    if (!calendarAuthStatus?.connected) {
+      setCalendarWizardError('Conecte o Google Calendar antes de testar.');
+      return false;
+    }
+    setCalendarTestLoading(true);
+    setCalendarTestResult(null);
+    try {
+      const start = new Date(Date.now() + 60 * 60 * 1000);
+      const end = new Date(start.getTime() + 30 * 60 * 1000);
+      const response = await fetch('/api/integrations/google-calendar/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calendarId: calendarAuthStatus?.calendar?.calendarId || undefined,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          timeZone: selectedCalendarTimeZone,
+          summary: 'Teste SmartZap',
+          description: 'Evento de teste criado pelo SmartZap.',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.error || 'Falha ao criar evento');
+      }
+      setCalendarTestResult({ ok: true, link: (data as any)?.htmlLink || null });
+      toast.success('Evento de teste criado.');
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao criar evento';
+      setCalendarTestResult({ ok: false });
+      setCalendarWizardError(message);
+      toast.error(message);
+      return false;
+    } finally {
+      setCalendarTestLoading(false);
+    }
+  };
+
+  const handleCalendarWizardStepClick = (step: number) => {
+    if (step === 2 && !calendarCredsStatus?.isConfigured) {
+      setCalendarWizardError('Complete as credenciais primeiro.');
+      return;
+    }
+    if (step === 3 && !calendarAuthStatus?.connected) {
+      setCalendarWizardError('Conecte o Google Calendar antes.');
+      return;
+    }
+    setCalendarWizardError(null);
+    setCalendarWizardStep(step);
+  };
+
+  const handleCalendarWizardBack = () => {
+    setCalendarWizardError(null);
+    if (calendarWizardStep === 0) {
+      setIsCalendarWizardOpen(false);
+      return;
+    }
+    setCalendarWizardStep((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleCalendarWizardNext = async () => {
+    if (calendarWizardStep === 0) {
+      setCalendarWizardError(null);
+      setCalendarWizardStep(1);
+      return;
+    }
+    if (calendarWizardStep === 1) {
+      if (!calendarCredsStatus?.isConfigured) {
+        setCalendarWizardError('Salve as credenciais para continuar.');
+        return;
+      }
+      setCalendarWizardError(null);
+      setCalendarWizardStep(2);
+      return;
+    }
+    if (calendarWizardStep === 2) {
+      if (!calendarAuthStatus?.connected) {
+        setCalendarWizardError('Autorize o Google para continuar.');
+        return;
+      }
+      setCalendarWizardError(null);
+      setCalendarWizardStep(3);
+      return;
+    }
+    const effectiveCalendarId = calendarSelectionId || calendarAuthStatus?.calendar?.calendarId;
+    if (!effectiveCalendarId) {
+      setCalendarWizardError('Selecione um calendario antes de testar.');
+      return;
+    }
+    if (calendarSelectionId && calendarSelectionId !== calendarAuthStatus?.calendar?.calendarId) {
+      const saved = await handleSaveCalendarSelection();
+      if (!saved) return;
+    }
+    const ok = await handleCalendarTestEvent();
+    if (ok) {
+      setIsCalendarWizardOpen(false);
+    }
+  };
+
+  const calendarBaseUrl = (calendarBaseUrlDraft || appOrigin || '').replace(/\/$/, '');
+  const calendarRedirectUrl = calendarBaseUrl
+    ? `${calendarBaseUrl}/api/integrations/google-calendar/callback`
+    : 'https://seu-dominio.com/api/integrations/google-calendar/callback';
+  const calendarWebhookUrl = calendarBaseUrl
+    ? `${calendarBaseUrl}/api/integrations/google-calendar/webhook`
+    : 'https://seu-dominio.com/api/integrations/google-calendar/webhook';
+  const calendarStep = !calendarCredsStatus?.isConfigured
+    ? 1
+    : !calendarAuthStatus?.connected
+      ? 2
+      : 3;
+  const calendarCredsSourceLabel = calendarCredsStatus?.source === 'env'
+    ? 'variaveis de ambiente'
+    : calendarCredsStatus?.source === 'db'
+      ? 'configurado aqui'
+      : 'nao configurado';
+  const calendarWizardStorageKey = 'gcWizardProgress';
+  const calendarClientIdValue = calendarClientIdDraft.trim();
+  const calendarClientSecretValue = calendarClientSecretDraft.trim();
+  const calendarClientIdValid = !calendarClientIdValue || /\.apps\.googleusercontent\.com$/i.test(calendarClientIdValue);
+  const calendarClientSecretValid = !calendarClientSecretValue || calendarClientSecretValue.length >= 10;
+  const calendarCredsFormValid = Boolean(
+    calendarClientIdValue &&
+      calendarClientSecretValue &&
+      calendarClientIdValid &&
+      calendarClientSecretValid
+  );
+  const selectedCalendar = calendarList.find((item) => String(item.id) === calendarSelectionId);
+  const selectedCalendarTimeZone = selectedCalendar?.timeZone || calendarAuthStatus?.calendar?.calendarTimeZone || calendarDraft.timezone;
+  const hasCalendarSelection = Boolean(calendarSelectionId || calendarAuthStatus?.calendar?.calendarId);
+  const filteredCalendarList = calendarListQuery.trim()
+    ? calendarList.filter((item) => {
+      const query = calendarListQuery.trim().toLowerCase();
+      return String(item.summary || item.id).toLowerCase().includes(query);
+    })
+    : calendarList;
+  const calendarWizardCanContinue = calendarWizardStep === 0
+    ? true
+    : calendarWizardStep === 1
+      ? calendarCredsStatus?.isConfigured
+      : calendarWizardStep === 2
+        ? calendarAuthStatus?.connected
+        : calendarWizardStep === 3
+          ? Boolean(calendarAuthStatus?.connected && hasCalendarSelection)
+          : false;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gc') === '1') {
+      setIsCalendarWizardOpen(true);
+      setCalendarWizardError(null);
+      const autoStep = calendarStep === 3 ? 3 : calendarStep === 2 ? 2 : 0;
+      setCalendarWizardStep(autoStep);
+      params.delete('gc');
+      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+      window.history.replaceState({}, '', next);
+    }
+  }, [calendarStep]);
+
+  useEffect(() => {
+    if (!isCalendarWizardOpen) return;
+    const fromStatus = calendarStep === 3 ? 3 : calendarStep === 2 ? 2 : 0;
+    setCalendarWizardStep((prev) => (prev > 0 ? prev : fromStatus));
+  }, [isCalendarWizardOpen, calendarStep]);
+
+  useEffect(() => {
+    if (!isCalendarWizardOpen || typeof window === 'undefined') return;
+    const storedRaw = window.localStorage.getItem(calendarWizardStorageKey);
+    if (!storedRaw) return;
+    try {
+      const stored = JSON.parse(storedRaw) as { step?: number; selectionId?: string; baseUrl?: string };
+      if (stored?.baseUrl && !calendarBaseUrlEditing) {
+        setCalendarBaseUrlDraft(stored.baseUrl);
+      }
+      if (stored?.selectionId) {
+        setCalendarSelectionId(stored.selectionId);
+      }
+      if (typeof stored?.step === 'number') {
+        setCalendarWizardStep(stored.step);
+      }
+    } catch {
+      // ignore
+    }
+  }, [isCalendarWizardOpen, calendarBaseUrlEditing]);
+
+  useEffect(() => {
+    if (!isCalendarWizardOpen || typeof window === 'undefined') return;
+    const payload = {
+      step: calendarWizardStep,
+      selectionId: calendarSelectionId,
+      baseUrl: calendarBaseUrlDraft,
+    };
+    window.localStorage.setItem(calendarWizardStorageKey, JSON.stringify(payload));
+  }, [isCalendarWizardOpen, calendarWizardStep, calendarSelectionId, calendarBaseUrlDraft]);
+
+  useEffect(() => {
+    if (!isCalendarWizardOpen) return;
+    setCalendarWizardError(null);
+  }, [calendarWizardStep, isCalendarWizardOpen]);
+
+  useEffect(() => {
+    if (isCalendarWizardOpen) {
+      setCalendarListQuery('');
+    }
+  }, [isCalendarWizardOpen]);
+
+  useEffect(() => {
+    if (!isCalendarWizardOpen) {
+      setCalendarConnectLoading(false);
+    }
+  }, [isCalendarWizardOpen]);
+
+  useEffect(() => {
+    if (!isCalendarWizardOpen) return;
+    if (calendarWizardStep === 3 && !calendarAuthStatus?.connected) {
+      setCalendarWizardStep(calendarCredsStatus?.isConfigured ? 2 : 0);
+      return;
+    }
+    if (calendarWizardStep === 2 && !calendarCredsStatus?.isConfigured) {
+      setCalendarWizardStep(0);
+    }
+  }, [isCalendarWizardOpen, calendarWizardStep, calendarAuthStatus?.connected, calendarCredsStatus?.isConfigured]);
 
   const TURBO_PRESETS = {
     leve: {
@@ -665,6 +1163,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     });
   }, [autoConfig?.enabled, autoConfig?.undeliverable131026?.enabled, autoConfig?.undeliverable131026?.windowDays, autoConfig?.undeliverable131026?.threshold, autoConfig?.undeliverable131026?.ttlBaseDays, autoConfig?.undeliverable131026?.ttl2Days, autoConfig?.undeliverable131026?.ttl3Days, isEditingAutoSuppression]);
 
+  const clampExecutionValue = (value: number, min: number, max: number) => {
+    const safe = Number.isFinite(value) ? value : min;
+    return Math.min(max, Math.max(min, Math.floor(safe)));
+  };
+
   const handleSaveTurbo = async () => {
     if (!saveWhatsAppThrottle) return;
 
@@ -731,6 +1234,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       },
     });
     setIsEditingAutoSuppression(false);
+  };
+
+  const handleSaveWorkflowExecution = async () => {
+    if (!saveWorkflowExecution) return;
+    await saveWorkflowExecution({
+      retryCount: clampExecutionValue(workflowExecutionDraft.retryCount, 0, 10),
+      retryDelayMs: clampExecutionValue(workflowExecutionDraft.retryDelayMs, 0, 60000),
+      timeoutMs: clampExecutionValue(workflowExecutionDraft.timeoutMs, 0, 60000),
+    });
+    setIsEditingWorkflowExecution(false);
   };
 
   // Compute the actual webhook URL based on selected domain
@@ -1389,15 +1902,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 onClick={() => setIsEditingCalendarBooking((v) => !v)}
                 className="h-10 px-4 rounded-lg bg-white/5 text-white hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all text-sm font-medium inline-flex items-center gap-2 whitespace-nowrap"
               >
-                <Edit2 size={14} /> {isEditingCalendarBooking ? 'Cancelar' : 'Editar'}
+                <Edit2 size={14} /> {isEditingCalendarBooking ? 'Cancelar' : 'Editar regras'}
               </button>
             </div>
 
-            <div className="mt-5 rounded-xl border border-white/10 bg-zinc-900/50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="mt-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-xs text-gray-400">Status da integracao</div>
-                  <div className="mt-1 text-sm text-white">
+                  <div className="text-sm font-semibold text-white">Google Calendar</div>
+                  <div className="mt-1 text-xs text-gray-400">
                     {calendarAuthLoading
                       ? 'Verificando...'
                       : calendarAuthStatus?.connected
@@ -1405,48 +1918,563 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         : 'Desconectado'}
                   </div>
                   {calendarAuthStatus?.calendar?.calendarSummary && (
-                    <div className="mt-1 text-xs text-gray-400">
+                    <div className="mt-2 text-xs text-gray-400">
                       Calendario: {calendarAuthStatus.calendar.calendarSummary}
                     </div>
                   )}
-                  {calendarAuthStatus?.expiresAt && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      Token expira: {new Date(calendarAuthStatus.expiresAt).toLocaleString('pt-BR')}
+                  {calendarAuthStatus?.connected && (
+                    <div className="mt-2 text-xs text-gray-400">
+                      Conta: {calendarAuthStatus?.calendar?.accountEmail || 'nao disponivel'}
                     </div>
                   )}
-                  {calendarAuthError && (
-                    <div className="mt-1 text-xs text-red-400">{calendarAuthError}</div>
+                  {calendarTestResult?.ok && calendarTestResult?.link && (
+                    <a
+                      href={calendarTestResult.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-200 hover:text-emerald-100"
+                    >
+                      <ExternalLink size={12} />
+                      Evento de teste criado
+                    </a>
+                  )}
+                  {calendarTestResult?.ok === false && (
+                    <div className="mt-2 text-xs text-red-400">
+                      Falha ao criar evento de teste.
+                    </div>
+                  )}
+                  {!calendarAuthStatus?.connected && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Conecte uma vez para liberar o agendamento no WhatsApp.
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={fetchCalendarAuthStatus}
-                    className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                    onClick={handlePrimaryCalendarAction}
+                    className="h-9 px-4 rounded-lg bg-emerald-500/90 text-white text-xs font-medium hover:bg-emerald-500 transition-colors"
                   >
-                    Atualizar
+                    {calendarAuthStatus?.connected ? 'Gerenciar conexao' : 'Conectar Google Calendar'}
                   </button>
-                  {calendarAuthStatus?.connected ? (
-                    <button
-                      type="button"
-                      onClick={handleDisconnectCalendar}
-                      disabled={calendarAuthLoading}
-                      className="h-9 px-3 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-200 hover:bg-red-500/20 transition-colors"
-                    >
-                      Desconectar
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleConnectCalendar}
-                      className="h-9 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-200 hover:bg-emerald-500/20 transition-colors"
-                    >
-                      Conectar
-                    </button>
+                  {calendarAuthStatus?.connected && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCalendarWizardStep(3);
+                          setCalendarWizardError(null);
+                          setIsCalendarWizardOpen(true);
+                        }}
+                        className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                      >
+                        Trocar calendario
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCalendarTestEvent}
+                        disabled={calendarTestLoading}
+                        className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                      >
+                        {calendarTestLoading ? 'Testando...' : 'Testar evento'}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
             </div>
+
+            {isCalendarWizardOpen && (
+              <div className="fixed inset-0 z-50 bg-zinc-950 text-white">
+                <div className="flex h-full flex-col lg:flex-row">
+                  <aside className="w-full lg:w-80 border-b lg:border-b-0 lg:border-r border-white/10 bg-zinc-950/80 p-6">
+                    <div className="text-xs text-gray-400">Progresso</div>
+                    <div className="mt-4 space-y-2">
+                      {[{ id: 0, label: 'Checklist 60s' }, { id: 1, label: 'Credenciais' }, { id: 2, label: 'Conectar' }, { id: 3, label: 'Calendario' }].map((step) => {
+                        const isActive = calendarWizardStep === step.id;
+                        const isUnlocked = step.id === 0
+                          || step.id === 1
+                          || (step.id === 2 && calendarCredsStatus?.isConfigured)
+                          || (step.id === 3 && calendarAuthStatus?.connected);
+                        return (
+                          <button
+                            key={step.id}
+                            type="button"
+                            onClick={() => handleCalendarWizardStepClick(step.id)}
+                            disabled={!isUnlocked}
+                            className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs transition-colors ${
+                              isActive
+                                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100'
+                                : isUnlocked
+                                  ? 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                                  : 'border-white/5 bg-white/5 text-gray-600 cursor-not-allowed'
+                            }`}
+                          >
+                            <span>{step.id}. {step.label}</span>
+                            {isActive ? <Check size={14} className="text-emerald-300" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-gray-300">
+                      <div className="text-xs font-semibold text-white">Ajuda rapida</div>
+                      <div className="mt-2 space-y-2">
+                        <a
+                          href="https://developers.google.com/calendar/api/quickstart/js"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-emerald-200 hover:text-emerald-100"
+                        >
+                          <ExternalLink size={12} />
+                          Guia oficial
+                        </a>
+                        <a
+                          href="https://www.youtube.com/results?search_query=google+calendar+oauth+setup"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-emerald-200 hover:text-emerald-100"
+                        >
+                          <ExternalLink size={12} />
+                          Video rapido (2 min)
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 text-[11px] text-gray-500">
+                      Seu progresso fica salvo automaticamente.
+                    </div>
+                  </aside>
+
+                  <main className="flex-1 overflow-y-auto p-6 lg:p-10">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="text-xl font-semibold text-white">Conectar Google Calendar</div>
+                        <div className="mt-1 text-sm text-gray-400">
+                          Voce so faz isso uma vez. Depois o agendamento roda sozinho.
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsCalendarWizardOpen(false)}
+                          className="h-9 px-4 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                        >
+                          Salvar e sair
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCalendarWizardOpen(false)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 max-w-3xl space-y-5">
+                      {(calendarWizardError || (calendarWizardStep === 1 && calendarCredsError) || (calendarWizardStep === 2 && calendarAuthError) || (calendarWizardStep === 3 && calendarListError)) && (
+                        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-100">
+                          {calendarWizardError || (calendarWizardStep === 1 && calendarCredsError) || (calendarWizardStep === 2 && calendarAuthError) || (calendarWizardStep === 3 && calendarListError)}
+                        </div>
+                      )}
+
+                      {calendarWizardStep === 0 && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                          <div className="text-sm font-semibold text-white">Checklist de 60s</div>
+                          <div className="mt-1 text-xs text-gray-400">
+                            Em 3 passos voce libera o Google Calendar.
+                          </div>
+                          <div className="mt-4 grid gap-3 md:grid-cols-3">
+                            {[
+                              { title: 'Ative a API', desc: 'Habilite Google Calendar API.' },
+                              { title: 'Crie OAuth', desc: 'Cliente web com redirect.' },
+                              { title: 'Cole as URLs', desc: 'Redirect + Webhook.' },
+                            ].map((item) => (
+                              <div key={item.title} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                                <div className="text-xs font-semibold text-white">{item.title}</div>
+                                <div className="mt-1 text-[11px] text-gray-400">{item.desc}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4">
+                            <a
+                              href="https://console.cloud.google.com/apis/credentials"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-500/90 px-4 text-xs font-semibold text-white hover:bg-emerald-500"
+                            >
+                              <ExternalLink size={14} />
+                              Abrir Console
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      {calendarWizardStep === 1 && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold text-white">1) Credenciais</div>
+                              <div className="text-xs text-gray-400">Cole o Client ID e o Client Secret.</div>
+                              {calendarCredsStatus && (
+                                <div className="mt-1 text-[11px] text-gray-500">Fonte: {calendarCredsSourceLabel}</div>
+                              )}
+                            </div>
+                            {calendarCredsStatus?.isConfigured && (
+                              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-200">Pronto</span>
+                            )}
+                          </div>
+
+                          {calendarCredsLoading ? (
+                            <div className="mt-3 text-xs text-gray-400">Carregando credenciais...</div>
+                          ) : (
+                            <>
+                              {!calendarCredsStatus?.isConfigured && (
+                                <div className="mt-3 text-xs text-gray-500">
+                                  Ainda nao configurado.
+                                </div>
+                              )}
+                              {calendarCredsStatus?.source === 'env' && (
+                                <div className="mt-2 text-[11px] text-amber-200">
+                                  Credenciais vindas do servidor. Salvar aqui sobrescreve no banco.
+                                </div>
+                              )}
+
+                              <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-3 py-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-400">
+                                  <span>URL detectada do app</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCalendarBaseUrlEditing((prev) => !prev)}
+                                    className="text-emerald-200 hover:text-emerald-100"
+                                  >
+                                    {calendarBaseUrlEditing ? 'OK' : 'Editar'}
+                                  </button>
+                                </div>
+                                {calendarBaseUrlEditing ? (
+                                  <input
+                                    type="text"
+                                    value={calendarBaseUrlDraft}
+                                    onChange={(e) => setCalendarBaseUrlDraft(e.target.value)}
+                                    className="mt-2 w-full rounded-md border border-white/10 bg-black/40 px-3 py-2 text-xs text-white font-mono"
+                                    placeholder="https://app.seudominio.com"
+                                  />
+                                ) : (
+                                  <div className="mt-2 text-xs text-white font-mono break-all">{calendarBaseUrl || 'https://seu-dominio.com'}</div>
+                                )}
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-gray-400">
+                                <a
+                                  href="https://console.cloud.google.com/apis/credentials"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-emerald-200 hover:text-emerald-100"
+                                >
+                                  <ExternalLink size={12} />
+                                  Google Cloud Console
+                                </a>
+                                <span className="text-gray-600">•</span>
+                                <a
+                                  href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-emerald-200 hover:text-emerald-100"
+                                >
+                                  <ExternalLink size={12} />
+                                  Ativar Calendar API
+                                </a>
+                              </div>
+
+                              <div className="mt-3 rounded-lg border border-white/10 bg-black/40 px-3 py-3 text-[11px] text-gray-400">
+                                <div className="text-[11px] font-semibold text-gray-300">Checklist rapido</div>
+                                <div className="mt-2 space-y-1">
+                                  <div>1. Ative a Google Calendar API.</div>
+                                  <div>2. Crie credenciais OAuth (aplicacao web).</div>
+                                  <div>3. Cole o Redirect URI e o Webhook URL.</div>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-2">
+                                  <div className="text-[11px] text-gray-400">Client ID</div>
+                                  <input
+                                    type="text"
+                                    value={calendarClientIdDraft}
+                                    onChange={(e) => setCalendarClientIdDraft(e.target.value)}
+                                    className="mt-1 w-full bg-transparent text-sm text-white font-mono outline-none"
+                                    placeholder="ex: 1234.apps.googleusercontent.com"
+                                  />
+                                  {!calendarClientIdValid && (
+                                    <div className="mt-1 text-[11px] text-amber-200">Use um Client ID valido.</div>
+                                  )}
+                                </div>
+                                <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-2">
+                                  <div className="text-[11px] text-gray-400">Client Secret</div>
+                                  <input
+                                    type="password"
+                                    value={calendarClientSecretDraft}
+                                    onChange={(e) => setCalendarClientSecretDraft(e.target.value)}
+                                    className="mt-1 w-full bg-transparent text-sm text-white font-mono outline-none"
+                                    placeholder="cole seu secret"
+                                  />
+                                  {!calendarClientSecretValid && (
+                                    <div className="mt-1 text-[11px] text-amber-200">Secret parece curto demais.</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 rounded-lg border border-white/10 bg-zinc-950/40 px-3 py-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-400">
+                                  <span>Copie e cole no Google Cloud</span>
+                                  <button
+                                    type="button"
+                                    onClick={handleCopyCalendarBundle}
+                                    className="text-emerald-200 hover:text-emerald-100"
+                                  >
+                                    Copiar tudo
+                                  </button>
+                                </div>
+                                <div className="mt-2 text-[11px] text-gray-400">Redirect URI</div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <div className="text-xs text-white font-mono break-all">{calendarRedirectUrl}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyCalendarValue(calendarRedirectUrl, 'Redirect URI')}
+                                    className="h-7 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white hover:bg-white/10 transition-colors"
+                                  >
+                                    Copiar
+                                  </button>
+                                </div>
+                                <div className="mt-3 text-[11px] text-gray-400">Webhook URL</div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <div className="text-xs text-white font-mono break-all">{calendarWebhookUrl}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyCalendarValue(calendarWebhookUrl, 'Webhook URL')}
+                                    className="h-7 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white hover:bg-white/10 transition-colors"
+                                  >
+                                    Copiar
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex justify-end gap-2">
+                                {calendarCredsStatus?.source === 'db' && calendarCredsStatus?.isConfigured && (
+                                  <button
+                                    type="button"
+                                    onClick={handleRemoveCalendarCreds}
+                                    disabled={calendarCredsSaving}
+                                    className="h-9 px-4 rounded-lg border border-red-500/30 bg-red-500/10 text-xs text-red-200 hover:bg-red-500/20 transition-colors"
+                                  >
+                                    Remover
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={handleSaveCalendarCreds}
+                                  disabled={calendarCredsSaving || !calendarCredsFormValid}
+                                  className="h-9 px-4 rounded-lg bg-emerald-500/90 text-white text-xs font-medium hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                >
+                                  {calendarCredsSaving ? 'Salvando...' : 'Salvar credenciais'}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {calendarWizardStep === 2 && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold text-white">2) Conectar</div>
+                              <div className="text-xs text-gray-400">Abra o Google e autorize o acesso.</div>
+                              {calendarAuthStatus?.connected && (
+                                <div className="mt-2 text-xs text-gray-300">
+                                  Conta conectada:{' '}
+                                  <span className="font-mono text-white">
+                                    {calendarAuthStatus?.calendar?.accountEmail || 'nao disponivel'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {calendarAuthStatus?.connected && (
+                              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-200">Conectado</span>
+                            )}
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleConnectCalendar}
+                              disabled={!calendarCredsStatus?.isConfigured}
+                              className="h-9 px-4 rounded-lg bg-white text-black text-xs font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50"
+                            >
+                              {calendarConnectLoading && <Loader2 className="mr-2 size-3 animate-spin" />}
+                              {calendarConnectLoading ? 'Abrindo Google...' : calendarAuthStatus?.connected ? 'Reautorizar no Google' : 'Autorizar no Google'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={fetchCalendarAuthStatus}
+                              className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                            >
+                              Verificar status
+                            </button>
+                            {calendarAuthStatus?.connected && (
+                              <button
+                                type="button"
+                                onClick={handleDisconnectCalendar}
+                                className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                              >
+                                Desconectar
+                              </button>
+                            )}
+                            {!calendarCredsStatus?.isConfigured && (
+                              <span className="text-[11px] text-gray-500">Adicione as credenciais primeiro.</span>
+                            )}
+                          </div>
+
+                          {!calendarAuthStatus?.connected && (
+                            <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-3 text-[11px] text-gray-400">
+                              <div className="text-[11px] font-semibold text-gray-300">Causas comuns</div>
+                              <div className="mt-2 space-y-1">
+                                <div>1. Redirect URI diferente do cadastrado.</div>
+                                <div>2. API nao habilitada no projeto.</div>
+                                <div>3. Client ID/Secret incorretos.</div>
+                              </div>
+                            </div>
+                          )}
+                          <div className="text-[11px] text-gray-500">
+                            Ao concluir, criamos um evento de teste de 30 minutos.
+                          </div>
+                        </div>
+                      )}
+
+                      {calendarWizardStep === 3 && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold text-white">3) Escolha o calendario</div>
+                              <div className="text-xs text-gray-400">Usamos este calendario para disponibilidade e eventos.</div>
+                              {selectedCalendarTimeZone && (
+                                <div className="mt-2 text-xs text-gray-300">
+                                  Fuso horario: <span className="font-mono text-white">{selectedCalendarTimeZone}</span>
+                                </div>
+                              )}
+                            </div>
+                            {calendarAuthStatus?.connected && calendarAuthStatus?.calendar?.calendarSummary && (
+                              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-200">
+                                {calendarAuthStatus.calendar.calendarSummary}
+                              </span>
+                            )}
+                          </div>
+
+                          {!calendarAuthStatus?.connected ? (
+                            <div className="mt-3 text-xs text-gray-500">Conecte o Google Calendar para escolher.</div>
+                          ) : (
+                            <div className="mt-3 space-y-3">
+                              {calendarListLoading ? (
+                                <div className="text-xs text-gray-400">Carregando calendarios...</div>
+                              ) : calendarListError ? (
+                                <div className="text-xs text-red-400">{calendarListError}</div>
+                              ) : (
+                                <>
+                                  {calendarList.length === 0 ? (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <div className="text-xs text-gray-500">Nenhum calendario encontrado.</div>
+                                      <a
+                                        href="https://calendar.google.com/calendar/u/0/r/settings/createcalendar"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-emerald-200 hover:text-emerald-100"
+                                      >
+                                        Criar novo calendario
+                                      </a>
+                                      <button
+                                        type="button"
+                                        onClick={fetchCalendarList}
+                                        className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                                      >
+                                        Atualizar lista
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      <input
+                                        type="text"
+                                        value={calendarListQuery}
+                                        onChange={(e) => setCalendarListQuery(e.target.value)}
+                                        placeholder="Buscar calendario..."
+                                        className="h-9 w-full rounded-lg border border-white/10 bg-zinc-900/60 px-3 text-xs text-white"
+                                      />
+                                      {filteredCalendarList.length === 0 ? (
+                                        <div className="text-xs text-gray-500">Nenhum calendario com esse filtro.</div>
+                                      ) : (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <select
+                                            value={calendarSelectionId}
+                                            onChange={(e) => setCalendarSelectionId(e.target.value)}
+                                            className="h-9 rounded-lg border border-white/10 bg-zinc-900/60 px-3 text-xs text-white"
+                                          >
+                                            {filteredCalendarList.map((item) => (
+                                              <option key={item.id} value={item.id}>
+                                                {item.summary || item.id}
+                                                {item.primary ? ' (principal)' : ''}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <button
+                                            type="button"
+                                            onClick={fetchCalendarList}
+                                            className="h-9 px-3 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                                          >
+                                            Atualizar lista
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={handleSaveCalendarSelection}
+                                            disabled={!calendarSelectionId || calendarSelectionSaving}
+                                            className="h-9 px-4 rounded-lg bg-emerald-500/90 text-white text-xs font-medium hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                          >
+                                            {calendarSelectionSaving ? 'Salvando...' : 'Salvar calendario'}
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={handleCalendarWizardBack}
+                          className="h-9 px-4 rounded-lg border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 transition-colors"
+                        >
+                          Voltar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCalendarWizardNext}
+                          disabled={!calendarWizardCanContinue || calendarTestLoading}
+                          className="h-9 px-4 rounded-lg bg-emerald-500/90 text-white text-xs font-medium hover:bg-emerald-500 transition-colors disabled:opacity-40"
+                        >
+                          {calendarWizardStep === 3
+                            ? (calendarTestLoading ? 'Testando...' : 'Concluir e testar')
+                            : 'Continuar'}
+                        </button>
+                      </div>
+                    </div>
+                  </main>
+                </div>
+              </div>
+            )}
 
             {calendarBookingLoading ? (
               <div className="mt-6 text-sm text-gray-400">Carregando configuracoes...</div>
@@ -2302,6 +3330,137 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       />
                       <p className="text-[11px] text-gray-500 mt-1">Quarentena (dias) na 3ª+ ocorrência.</p>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Execução do workflow (global) */}
+        {settings.isConnected && saveWorkflowExecution && (
+          <div className="glass-panel rounded-2xl p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+                  <span className="w-1 h-6 bg-sky-500 rounded-full"></span>
+                  <Clock size={18} className="text-sky-300" />
+                  Execução do workflow (global)
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Define retries e timeouts padrão para cada etapa, sem complicar o fluxo.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isEditingWorkflowExecution && (
+                  <button
+                    onClick={handleSaveWorkflowExecution}
+                    disabled={!!isSavingWorkflowExecution}
+                    className="h-10 px-5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-semibold transition-all text-sm flex items-center gap-2 shadow-lg shadow-sky-500/10 disabled:opacity-50"
+                  >
+                    {isSavingWorkflowExecution ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    Salvar
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsEditingWorkflowExecution((v) => !v)}
+                  className="h-10 px-4 rounded-xl bg-white/5 text-white hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all text-sm font-medium"
+                >
+                  {isEditingWorkflowExecution ? 'Fechar' : 'Configurar'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4">
+                <div className="text-xs text-gray-500">Resumo</div>
+                {workflowExecutionLoading ? (
+                  <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" /> Carregando…
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <div className="text-sm text-white">
+                      retries: <span className="font-mono text-white">{workflowExecutionConfig?.retryCount ?? 0}</span>
+                      <span className="text-gray-500"> · </span>
+                      delay: <span className="font-mono text-white">{workflowExecutionConfig?.retryDelayMs ?? 500}ms</span>
+                      <span className="text-gray-500"> · </span>
+                      timeout: <span className="font-mono text-white">{workflowExecutionConfig?.timeoutMs ?? 10000}ms</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-400">
+                      fonte: {workflowExecution?.source || 'env'}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-zinc-900/40 border border-white/10 rounded-xl p-4">
+                <div className="text-xs text-gray-500">Observação</div>
+                <div className="mt-2 text-xs text-gray-400 leading-relaxed">
+                  Aplica em todos os steps do workflow. Ajustes por etapa foram removidos para manter simples.
+                </div>
+              </div>
+            </div>
+
+            {isEditingWorkflowExecution && (
+              <div className="mt-6 p-5 bg-zinc-900/30 border border-white/10 rounded-2xl">
+                <div className="text-sm font-medium text-white">Parâmetros globais</div>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">retryCount</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={workflowExecutionDraft.retryCount}
+                      onChange={(e) =>
+                        setWorkflowExecutionDraft((s) => ({
+                          ...s,
+                          retryCount: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-sm text-white font-mono"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-1">Quantas tentativas extras por etapa.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">retryDelayMs</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60000}
+                      value={workflowExecutionDraft.retryDelayMs}
+                      onChange={(e) =>
+                        setWorkflowExecutionDraft((s) => ({
+                          ...s,
+                          retryDelayMs: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-sm text-white font-mono"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-1">Delay base antes de reintentar (backoff exponencial).</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">timeoutMs</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={60000}
+                      value={workflowExecutionDraft.timeoutMs}
+                      onChange={(e) =>
+                        setWorkflowExecutionDraft((s) => ({
+                          ...s,
+                          timeoutMs: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full px-3 py-2 bg-zinc-900/50 border border-white/10 rounded-lg text-sm text-white font-mono"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-1">Tempo máximo por etapa antes de falhar.</p>
                   </div>
                 </div>
               </div>

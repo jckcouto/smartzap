@@ -14,7 +14,7 @@ function normalizeReturnTo(value: string | null): string {
 export async function GET(request: NextRequest) {
   try {
     const state = createOAuthState()
-    const authUrl = buildGoogleCalendarAuthUrl(state)
+    const authUrl = await buildGoogleCalendarAuthUrl(state)
     const returnTo = normalizeReturnTo(request.nextUrl.searchParams.get('returnTo'))
 
     const response = NextResponse.redirect(authUrl)

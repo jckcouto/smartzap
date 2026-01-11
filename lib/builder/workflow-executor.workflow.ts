@@ -20,6 +20,7 @@ import { getErrorMessageAsync } from "./utils";
 import { createConversation } from "./workflow-conversations";
 import { normalizePhoneNumber } from "@/lib/phone-formatter";
 import type { WorkflowEdge, WorkflowNode } from "./workflow-store";
+import { getWorkflowExecutionConfig } from "@/lib/builder/workflow-execution-settings";
 
 // System actions that don't have plugins - maps to module import functions
 const SYSTEM_ACTIONS: Record<string, StepImporter> = {
@@ -262,6 +263,17 @@ async function runWithRetry<T>(
   }
 }
 
+function resolveExecutionNumber(value: unknown, fallback: number): number {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(0, parsed);
+}
+
 /**
  * Execute a single action step with logging via stepHandler
  * IMPORTANT: Steps receive only the integration ID as a reference to fetch credentials.
@@ -274,8 +286,21 @@ async function executeActionStep(input: {
   context: StepContext;
   triggerData: Record<string, unknown>;
   variables: Record<string, unknown>;
+  executionDefaults?: {
+    retryCount: number;
+    retryDelayMs: number;
+    timeoutMs: number;
+  };
 }) {
-  const { actionType, config, outputs, context, triggerData, variables } = input;
+  const {
+    actionType,
+    config,
+    outputs,
+    context,
+    triggerData,
+    variables,
+    executionDefaults,
+  } = input;
 
   // Build step input WITHOUT credentials, but WITH integrationId reference and logging context
   const stepInput: Record<string, unknown> = {
@@ -284,9 +309,18 @@ async function executeActionStep(input: {
     _context: context,
   };
 
-  const retryCount = Number(config.retryCount ?? 0);
-  const retryDelayMs = Number(config.retryDelayMs ?? 0);
-  const timeoutMs = Number(config.timeoutMs ?? 0);
+  const retryCount = resolveExecutionNumber(
+    config.retryCount,
+    executionDefaults?.retryCount ?? 0
+  );
+  const retryDelayMs = resolveExecutionNumber(
+    config.retryDelayMs,
+    executionDefaults?.retryDelayMs ?? 0
+  );
+  const timeoutMs = resolveExecutionNumber(
+    config.timeoutMs,
+    executionDefaults?.timeoutMs ?? 0
+  );
 
   if (actionType === "Delay") {
     const delayMs =
@@ -524,6 +558,15 @@ export async function executeWorkflow(
   const variables: Record<string, unknown> = {
     ...(input.initialVariables || {}),
   };
+  const executionDefaults = await getWorkflowExecutionConfig()
+    .then((res) => res.config)
+    .catch((error) => {
+      console.error(
+        "[Workflow Executor] Failed to load execution defaults:",
+        error
+      );
+      return { retryCount: 0, retryDelayMs: 500, timeoutMs: 10000 };
+    });
 
   // Build node and edge maps
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -801,6 +844,7 @@ export async function executeWorkflow(
               context: stepContext,
               triggerData: triggerInput ?? {},
               variables,
+              executionDefaults,
             });
 
             const isErrorResult =

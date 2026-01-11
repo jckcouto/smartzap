@@ -113,6 +113,12 @@ export default function SettingsPage() {
             calendarBookingLoading={controller.calendarBookingLoading}
             saveCalendarBooking={controller.saveCalendarBooking}
             isSavingCalendarBooking={controller.isSavingCalendarBooking}
+
+            // Execução do workflow (global)
+            workflowExecution={controller.workflowExecution}
+            workflowExecutionLoading={controller.workflowExecutionLoading}
+            saveWorkflowExecution={controller.saveWorkflowExecution}
+            isSavingWorkflowExecution={controller.isSavingWorkflowExecution}
             hideHeader
           />
         </div>

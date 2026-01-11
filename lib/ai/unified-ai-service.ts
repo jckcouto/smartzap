@@ -66,6 +66,16 @@ export interface GenerateTextResult {
     model: string;
 }
 
+export class MissingAIKeyError extends Error {
+    provider: AIProvider;
+
+    constructor(provider: AIProvider) {
+        super(`API key not configured for provider: ${provider}`);
+        this.name = 'MissingAIKeyError';
+        this.provider = provider;
+    }
+}
+
 // =============================================================================
 // SETTINGS CACHE
 // =============================================================================
@@ -153,7 +163,7 @@ export function clearSettingsCache() {
 
 function getLanguageModel(providerId: AIProvider, modelId: string, apiKey: string) {
     if (!apiKey) {
-        throw new Error(`API key not configured for provider: ${providerId}`);
+        throw new MissingAIKeyError(providerId);
     }
 
     switch (providerId) {
@@ -219,20 +229,38 @@ export async function generateText(options: GenerateTextOptions): Promise<Genera
         };
     } catch (error) {
         const fallback = await getAiFallbackConfig();
-        const fallbackKey = settings.providerKeys?.[fallback.provider] || '';
-
-        if (!fallback.enabled || !fallbackKey || (fallback.provider === providerId && fallback.model === modelId)) {
+        if (!fallback.enabled) {
             throw error;
         }
 
-        console.warn(`[AI Service] Primary failed, falling back to ${fallback.provider}/${fallback.model}`);
+        const fallbackOrder = (fallback.order || []).filter((provider) => provider !== providerId);
+        let lastError: unknown = error;
 
-        const fallbackResult = await runGeneration(fallback.provider, fallback.model, fallbackKey);
-        return {
-            text: fallbackResult.text,
-            provider: fallback.provider,
-            model: fallback.model,
-        };
+        for (const provider of fallbackOrder) {
+            const fallbackKey = settings.providerKeys?.[provider] || '';
+            if (!fallbackKey) {
+                continue;
+            }
+
+            const fallbackModel = fallback.models?.[provider] || getDefaultModel(provider)?.id || '';
+            if (!fallbackModel) {
+                continue;
+            }
+
+            try {
+                console.warn(`[AI Service] Primary failed, falling back to ${provider}/${fallbackModel}`);
+                const fallbackResult = await runGeneration(provider, fallbackModel, fallbackKey);
+                return {
+                    text: fallbackResult.text,
+                    provider,
+                    model: fallbackModel,
+                };
+            } catch (fallbackError) {
+                lastError = fallbackError;
+            }
+        }
+
+        throw lastError;
     }
 }
 

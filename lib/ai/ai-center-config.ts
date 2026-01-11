@@ -35,16 +35,34 @@ function normalizeRoutes(input?: Partial<AiRoutesConfig> | null): AiRoutesConfig
     generateTemplate: !!next.generateTemplate,
     generateUtilityTemplates: !!next.generateUtilityTemplates,
     generateFlowForm: !!next.generateFlowForm,
-    workflowBuilder: !!next.workflowBuilder,
   }
 }
 
 function normalizeFallback(input?: Partial<AiFallbackConfig> | null): AiFallbackConfig {
   const next = { ...DEFAULT_AI_FALLBACK, ...(input || {}) }
+  const providers = Object.keys(DEFAULT_AI_FALLBACK.models) as Array<keyof AiFallbackConfig['models']>
+  const legacyProvider = (input as Partial<{ provider: keyof AiFallbackConfig['models'] }>)?.provider
+  const legacyModel = (input as Partial<{ model: string }>)?.model
+  const rawOrder = Array.isArray(next.order) ? next.order : []
+  const normalizedOrder = rawOrder.filter((provider) => providers.includes(provider))
+  const uniqueOrder = Array.from(new Set(normalizedOrder))
+  const legacyOrder = legacyProvider && providers.includes(legacyProvider)
+    ? [legacyProvider, ...DEFAULT_AI_FALLBACK.order.filter((p) => p !== legacyProvider)]
+    : DEFAULT_AI_FALLBACK.order
+  const order = uniqueOrder.length > 0 ? uniqueOrder : legacyOrder
+  const rawModels = (next.models || {}) as AiFallbackConfig['models']
+  const models = providers.reduce((acc, provider) => {
+    const value = rawModels[provider]
+    acc[provider] = typeof value === 'string' && value.trim() ? value : DEFAULT_AI_FALLBACK.models[provider]
+    return acc
+  }, {} as AiFallbackConfig['models'])
+  if (legacyProvider && providers.includes(legacyProvider) && typeof legacyModel === 'string' && legacyModel.trim()) {
+    models[legacyProvider] = legacyModel
+  }
   return {
     enabled: !!next.enabled,
-    provider: next.provider || DEFAULT_AI_FALLBACK.provider,
-    model: next.model || DEFAULT_AI_FALLBACK.model,
+    order,
+    models,
   }
 }
 

@@ -5,6 +5,8 @@ const SETTINGS_KEYS = {
   tokens: 'google_calendar_tokens',
   config: 'google_calendar_config',
   channel: 'google_calendar_channel',
+  clientId: 'googleCalendarClientId',
+  clientSecret: 'googleCalendarClientSecret',
 } as const
 
 const GOOGLE_OAUTH_BASE = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -12,7 +14,11 @@ const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
 const GOOGLE_API_BASE = 'https://www.googleapis.com/calendar/v3'
 
-const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/calendar']
+const GOOGLE_SCOPES = [
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'openid',
+]
 
 export type GoogleCalendarTokens = {
   accessToken: string
@@ -27,6 +33,7 @@ export type GoogleCalendarConfig = {
   calendarSummary?: string | null
   calendarTimeZone?: string | null
   connectedAt?: string | null
+  accountEmail?: string | null
 }
 
 export type GoogleCalendarChannel = {
@@ -38,6 +45,21 @@ export type GoogleCalendarChannel = {
   createdAt: string
   lastNotificationAt?: string | null
   lastResourceState?: string | null
+}
+
+export type GoogleCalendarCredentialsSource = 'db' | 'env' | 'none'
+
+export type GoogleCalendarCredentials = {
+  clientId: string
+  clientSecret: string
+  source: GoogleCalendarCredentialsSource
+}
+
+export type GoogleCalendarCredentialsPublic = {
+  clientId: string | null
+  source: GoogleCalendarCredentialsSource
+  hasClientSecret: boolean
+  isConfigured: boolean
 }
 
 function getBaseUrl(): string {
@@ -62,18 +84,89 @@ export function getGoogleCalendarWebhookUrl(): string {
   return process.env.GOOGLE_CALENDAR_WEBHOOK_URL || `${getBaseUrl()}/api/integrations/google-calendar/webhook`
 }
 
-export function getGoogleCalendarOAuthConfig(): {
-  clientId: string
-  clientSecret: string
-} | null {
-  const clientId = String(process.env.GOOGLE_CALENDAR_CLIENT_ID || '').trim()
-  const clientSecret = String(process.env.GOOGLE_CALENDAR_CLIENT_SECRET || '').trim()
-  if (!clientId || !clientSecret) return null
-  return { clientId, clientSecret }
+export async function getGoogleCalendarCredentials(): Promise<GoogleCalendarCredentials | null> {
+  const envClientId = String(process.env.GOOGLE_CALENDAR_CLIENT_ID || '').trim()
+  const envClientSecret = String(process.env.GOOGLE_CALENDAR_CLIENT_SECRET || '').trim()
+
+  if (isSupabaseConfigured()) {
+    try {
+      const [dbClientIdRaw, dbClientSecretRaw] = await Promise.all([
+        settingsDb.get(SETTINGS_KEYS.clientId),
+        settingsDb.get(SETTINGS_KEYS.clientSecret),
+      ])
+      const dbClientId = String(dbClientIdRaw || '').trim()
+      const dbClientSecret = String(dbClientSecretRaw || '').trim()
+
+      if (dbClientId && dbClientSecret) {
+        return { clientId: dbClientId, clientSecret: dbClientSecret, source: 'db' }
+      }
+    } catch {
+      // ignore and fallback to env
+    }
+  }
+
+  if (envClientId && envClientSecret) {
+    return { clientId: envClientId, clientSecret: envClientSecret, source: 'env' }
+  }
+
+  return null
 }
 
-export function buildGoogleCalendarAuthUrl(state: string): string {
-  const config = getGoogleCalendarOAuthConfig()
+export async function getGoogleCalendarCredentialsPublic(): Promise<GoogleCalendarCredentialsPublic> {
+  const envClientId = String(process.env.GOOGLE_CALENDAR_CLIENT_ID || '').trim()
+  const envClientSecret = String(process.env.GOOGLE_CALENDAR_CLIENT_SECRET || '').trim()
+
+  if (isSupabaseConfigured()) {
+    try {
+      const [dbClientIdRaw, dbClientSecretRaw] = await Promise.all([
+        settingsDb.get(SETTINGS_KEYS.clientId),
+        settingsDb.get(SETTINGS_KEYS.clientSecret),
+      ])
+      const dbClientId = String(dbClientIdRaw || '').trim()
+      const dbClientSecret = String(dbClientSecretRaw || '').trim()
+      if (dbClientId || dbClientSecret) {
+        const hasSecret = Boolean(dbClientSecret)
+        return {
+          clientId: dbClientId || null,
+          source: 'db',
+          hasClientSecret: hasSecret,
+          isConfigured: Boolean(dbClientId && dbClientSecret),
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const hasEnv = Boolean(envClientId || envClientSecret)
+  if (hasEnv) {
+    return {
+      clientId: envClientId || null,
+      source: 'env',
+      hasClientSecret: Boolean(envClientSecret),
+      isConfigured: Boolean(envClientId && envClientSecret),
+    }
+  }
+
+  return {
+    clientId: null,
+    source: 'none',
+    hasClientSecret: false,
+    isConfigured: false,
+  }
+}
+
+export async function getGoogleCalendarOAuthConfig(): Promise<{
+  clientId: string
+  clientSecret: string
+} | null> {
+  const credentials = await getGoogleCalendarCredentials()
+  if (!credentials) return null
+  return { clientId: credentials.clientId, clientSecret: credentials.clientSecret }
+}
+
+export async function buildGoogleCalendarAuthUrl(state: string): Promise<string> {
+  const config = await getGoogleCalendarOAuthConfig()
   if (!config) {
     throw new Error('Google Calendar OAuth nao configurado')
   }
@@ -113,7 +206,7 @@ export function createChannelToken(): string {
 }
 
 export async function exchangeCodeForTokens(code: string): Promise<GoogleCalendarTokens> {
-  const config = getGoogleCalendarOAuthConfig()
+  const config = await getGoogleCalendarOAuthConfig()
   if (!config) throw new Error('Google Calendar OAuth nao configurado')
 
   const redirectUri = getGoogleCalendarRedirectUri()
@@ -146,8 +239,24 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleCalenda
   }
 }
 
+export async function fetchGoogleAccountEmail(accessToken: string): Promise<string | null> {
+  if (!accessToken) return null
+  try {
+    const response = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    const json = await response.json().catch(() => ({}))
+    if (!response.ok) return null
+    const email = typeof (json as any).email === 'string' ? String((json as any).email) : ''
+    return email.trim() ? email.trim() : null
+  } catch (error) {
+    console.warn('[google-calendar] Falha ao obter email:', error)
+    return null
+  }
+}
+
 async function refreshAccessToken(refreshToken: string): Promise<GoogleCalendarTokens> {
-  const config = getGoogleCalendarOAuthConfig()
+  const config = await getGoogleCalendarOAuthConfig()
   if (!config) throw new Error('Google Calendar OAuth nao configurado')
 
   const body = new URLSearchParams({
@@ -379,7 +488,7 @@ export async function createWatchChannel(params: {
   }
 }
 
-export async function buildDefaultCalendarConfig(): Promise<GoogleCalendarConfig> {
+export async function buildDefaultCalendarConfig(accountEmail?: string | null): Promise<GoogleCalendarConfig> {
   const calendars = await listCalendars()
   const primary = calendars.find((item: any) => item.primary) || calendars[0]
   if (!primary) {
@@ -390,6 +499,7 @@ export async function buildDefaultCalendarConfig(): Promise<GoogleCalendarConfig
     calendarSummary: String(primary.summary || ''),
     calendarTimeZone: primary.timeZone ? String(primary.timeZone) : null,
     connectedAt: new Date().toISOString(),
+    accountEmail: accountEmail || null,
   }
 }
 

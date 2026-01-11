@@ -1,10 +1,14 @@
 "use client";
 
 import { useAtom } from "jotai";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/builder/utils";
 import { nodesAtom, selectedNodeAtom } from "@/lib/builder/workflow-store";
 import { findActionById } from "@/lib/builder/plugins";
+import type { CustomFieldDefinition } from "@/types";
+import { customFieldService } from "@/services/customFieldService";
 import { TemplateAutocomplete } from "./template-autocomplete";
 
 export interface TemplateBadgeTextareaProps {
@@ -70,6 +74,135 @@ function getDisplayTextForTemplate(template: string, nodes: ReturnType<typeof us
   return `${displayLabel}.${field}`;
 }
 
+type TokenOption = {
+  id: string;
+  label: string;
+  token: string;
+  group: "Sistema" | "Personalizado";
+};
+
+type TokenAutocompleteProps = {
+  isOpen: boolean;
+  position: { top: number; left: number };
+  options: TokenOption[];
+  onSelect: (token: string) => void;
+  onClose: () => void;
+  filter?: string;
+};
+
+function TokenAutocomplete({
+  isOpen,
+  position,
+  options,
+  onSelect,
+  onClose,
+  filter = "",
+}: TokenAutocompleteProps) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [filter, options.length]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setSelectedIndex((prev) =>
+            prev < options.length - 1 ? prev + 1 : prev
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (options[selectedIndex]) {
+            onSelect(options[selectedIndex].token);
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          onClose();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, options, selectedIndex, onSelect, onClose]);
+
+  useEffect(() => {
+    if (menuRef.current) {
+      const selectedElement = menuRef.current.children[
+        selectedIndex
+      ] as HTMLElement;
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [selectedIndex]);
+
+  if (!isOpen || options.length === 0 || !mounted) {
+    return null;
+  }
+
+  const adjustedPosition = {
+    top: Math.min(position.top, window.innerHeight - 300),
+    left: Math.min(position.left, window.innerWidth - 320),
+  };
+
+  const menuContent = (
+    <div
+      className="fixed z-[9999] w-80 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+      ref={menuRef}
+      style={{
+        top: `${adjustedPosition.top}px`,
+        left: `${adjustedPosition.left}px`,
+      }}
+    >
+      <div className="max-h-60 overflow-y-auto">
+        {options.map((option, index) => (
+          <div
+            className={cn(
+              "flex cursor-pointer items-center justify-between rounded px-2 py-1.5 text-sm transition-colors",
+              index === selectedIndex
+                ? "bg-accent text-accent-foreground"
+                : "hover:bg-accent/50"
+            )}
+            key={option.id}
+            onClick={() => onSelect(option.token)}
+            onMouseEnter={() => setSelectedIndex(index)}
+          >
+            <div className="flex-1">
+              <div className="font-medium">{option.label}</div>
+              <div className="text-muted-foreground text-xs">
+                {option.token}
+              </div>
+            </div>
+            <span className="rounded bg-muted px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
+              {option.group}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return createPortal(menuContent, document.body);
+}
+
 /**
  * A textarea component that renders template variables as styled badges
  * Converts {{@nodeId:DisplayName.field}} to badges showing "DisplayName.field"
@@ -89,12 +222,81 @@ export function TemplateBadgeTextarea({
   const shouldUpdateDisplay = useRef(true);
   const [selectedNodeId] = useAtom(selectedNodeAtom);
   const [nodes] = useAtom(nodesAtom);
+  const { data: customFields = [] } = useQuery<CustomFieldDefinition[]>({
+    queryKey: ["customFields", "contact"],
+    queryFn: () => customFieldService.getAll("contact"),
+  });
+  const systemTokenOptions = useMemo(
+    () => [
+      {
+        id: "contact.name",
+        label: "Nome do contato",
+        token: "{{contact.name}}",
+        group: "Sistema",
+      },
+      {
+        id: "contact.phone",
+        label: "Telefone do contato",
+        token: "{{contact.phone}}",
+        group: "Sistema",
+      },
+      {
+        id: "contact.email",
+        label: "Email do contato",
+        token: "{{contact.email}}",
+        group: "Sistema",
+      },
+    ],
+    []
+  );
+  const customTokenOptions = useMemo(
+    () => {
+      const mapped = customFields.map((field) => {
+        const key = String(field.key || "").trim();
+        const label = String(field.label || key).trim();
+        if (!key || !label) return null;
+        return {
+          id: `custom.${key}`,
+          label,
+          token: `{{${key}}}`,
+          group: "Personalizado" as const,
+        };
+      });
+      return mapped.filter((field): field is TokenOption => Boolean(field));
+    },
+    [customFields]
+  );
+  const tokenOptions = useMemo(() => {
+    const all = [...systemTokenOptions, ...customTokenOptions];
+    return all.sort((a, b) => {
+      if (a.group !== b.group) {
+        return a.group === "Sistema" ? -1 : 1;
+      }
+      return a.label.localeCompare(b.label);
+    });
+  }, [systemTokenOptions, customTokenOptions]);
+  const [tokenFilter, setTokenFilter] = useState("");
+  const filteredTokenOptions = useMemo(() => {
+    const trimmed = tokenFilter.trim().toLowerCase();
+    if (!trimmed) return tokenOptions;
+    return tokenOptions.filter((option) => {
+      const label = option.label.toLowerCase();
+      const token = option.token.toLowerCase();
+      const id = option.id.toLowerCase();
+      return (
+        label.includes(trimmed) || token.includes(trimmed) || id.includes(trimmed)
+      );
+    });
+  }, [tokenFilter, tokenOptions]);
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
   const [autocompleteFilter, setAutocompleteFilter] = useState("");
   const [atSignPosition, setAtSignPosition] = useState<number | null>(null);
+  const [showTokenAutocomplete, setShowTokenAutocomplete] = useState(false);
+  const [tokenAutocompletePosition, setTokenAutocompletePosition] = useState({ top: 0, left: 0 });
+  const [bracePosition, setBracePosition] = useState<number | null>(null);
   const pendingCursorPosition = useRef<number | null>(null);
 
   // Update internal value when prop changes from outside
@@ -386,6 +588,68 @@ export function TemplateBadgeTextarea({
     return result;
   };
 
+  const updateAutocompleteState = (newValue: string) => {
+    const lastAtSign = newValue.lastIndexOf("@");
+    const lastOpenBrace = newValue.lastIndexOf("{");
+    const lastCloseBrace = newValue.lastIndexOf("}");
+
+    const atFilter =
+      lastAtSign !== -1 ? newValue.slice(lastAtSign + 1) : "";
+    const braceFilter =
+      lastOpenBrace !== -1 ? newValue.slice(lastOpenBrace + 1) : "";
+
+    const hasAt =
+      lastAtSign !== -1 &&
+      !atFilter.includes(" ") &&
+      !atFilter.includes("\n");
+    const hasBrace =
+      lastOpenBrace !== -1 &&
+      lastOpenBrace > lastCloseBrace &&
+      !braceFilter.includes(" ") &&
+      !braceFilter.includes("\n");
+
+    const position = contentRef.current
+      ? (() => {
+          const textareaRect = contentRef.current.getBoundingClientRect();
+          return {
+            top: textareaRect.bottom + window.scrollY + 4,
+            left: textareaRect.left + window.scrollX,
+          };
+        })()
+      : null;
+
+    if (hasAt && (!hasBrace || lastAtSign > lastOpenBrace)) {
+      setAutocompleteFilter(atFilter);
+      setAtSignPosition(lastAtSign);
+      setShowAutocomplete(true);
+      setShowTokenAutocomplete(false);
+      setBracePosition(null);
+      setTokenFilter("");
+      if (position) {
+        setAutocompletePosition(position);
+      }
+      return;
+    }
+
+    if (hasBrace && (!hasAt || lastOpenBrace > lastAtSign)) {
+      setTokenFilter(braceFilter);
+      setBracePosition(lastOpenBrace);
+      setShowTokenAutocomplete(true);
+      setShowAutocomplete(false);
+      setAtSignPosition(null);
+      setAutocompleteFilter("");
+      if (position) {
+        setTokenAutocompletePosition(position);
+      }
+      return;
+    }
+
+    setShowAutocomplete(false);
+    setAtSignPosition(null);
+    setShowTokenAutocomplete(false);
+    setBracePosition(null);
+  };
+
   const handleInput = () => {
     // Extract the value from DOM
     const newValue = extractValue();
@@ -414,6 +678,9 @@ export function TemplateBadgeTextarea({
       onChange?.(newValue);
       shouldUpdateDisplay.current = true;
       setShowAutocomplete(false);
+      setShowTokenAutocomplete(false);
+      setBracePosition(null);
+      setTokenFilter("");
       
       // Call updateDisplay immediately to render badges
       requestAnimationFrame(() => updateDisplay());
@@ -427,32 +694,7 @@ export function TemplateBadgeTextarea({
       setInternalValue(newValue);
       onChange?.(newValue);
       // Don't trigger display update - this prevents cursor reset!
-      
-      // Check for @ sign to show autocomplete (moved here so it works with existing badges)
-      const lastAtSign = newValue.lastIndexOf("@");
-      
-      if (lastAtSign !== -1) {
-        const filter = newValue.slice(lastAtSign + 1);
-        
-        if (!filter.includes(" ") && !filter.includes("\n")) {
-          setAutocompleteFilter(filter);
-          setAtSignPosition(lastAtSign);
-          
-          if (contentRef.current) {
-            const textareaRect = contentRef.current.getBoundingClientRect();
-            const position = {
-              top: textareaRect.bottom + window.scrollY + 4,
-              left: textareaRect.left + window.scrollX,
-            };
-            setAutocompletePosition(position);
-          }
-          setShowAutocomplete(true);
-        } else {
-          setShowAutocomplete(false);
-        }
-      } else {
-        setShowAutocomplete(false);
-      }
+      updateAutocompleteState(newValue);
       
       return;
     }
@@ -463,6 +705,9 @@ export function TemplateBadgeTextarea({
       setInternalValue(newValue);
       onChange?.(newValue);
       shouldUpdateDisplay.current = true;
+      setShowTokenAutocomplete(false);
+      setBracePosition(null);
+      setTokenFilter("");
       requestAnimationFrame(() => updateDisplay());
       return;
     }
@@ -472,31 +717,7 @@ export function TemplateBadgeTextarea({
     setInternalValue(newValue);
     onChange?.(newValue);
     
-    // Check for @ sign to show autocomplete
-    const lastAtSign = newValue.lastIndexOf("@");
-    
-    if (lastAtSign !== -1) {
-      const filter = newValue.slice(lastAtSign + 1);
-      
-      if (!filter.includes(" ") && !filter.includes("\n")) {
-        setAutocompleteFilter(filter);
-        setAtSignPosition(lastAtSign);
-        
-        if (contentRef.current) {
-          const textareaRect = contentRef.current.getBoundingClientRect();
-          const position = {
-            top: textareaRect.bottom + window.scrollY + 4,
-            left: textareaRect.left + window.scrollX,
-          };
-          setAutocompletePosition(position);
-        }
-        setShowAutocomplete(true);
-      } else {
-        setShowAutocomplete(false);
-      }
-    } else {
-      setShowAutocomplete(false);
-    }
+    updateAutocompleteState(newValue);
   };
 
   const handleAutocompleteSelect = (template: string) => {
@@ -530,11 +751,38 @@ export function TemplateBadgeTextarea({
     
     setShowAutocomplete(false);
     setAtSignPosition(null);
+    setShowTokenAutocomplete(false);
+    setBracePosition(null);
+    setTokenFilter("");
 
     // Set pending cursor position for the next update
     pendingCursorPosition.current = targetCursorPosition;
     
     // Ensure we focus the input so the display update and cursor restoration works
+    contentRef.current.focus();
+  };
+
+  const handleTokenAutocompleteSelect = (token: string) => {
+    if (!contentRef.current || bracePosition === null) return;
+
+    const currentText = extractValue();
+    const beforeBrace = currentText.slice(0, bracePosition);
+    const afterFilter = currentText.slice(bracePosition + 1 + tokenFilter.length);
+    const newText = beforeBrace + token + afterFilter;
+
+    const targetCursorPosition = beforeBrace.length + token.length;
+
+    setInternalValue(newText);
+    onChange?.(newText);
+    shouldUpdateDisplay.current = true;
+
+    setShowTokenAutocomplete(false);
+    setBracePosition(null);
+    setTokenFilter("");
+    setShowAutocomplete(false);
+    setAtSignPosition(null);
+
+    pendingCursorPosition.current = targetCursorPosition;
     contentRef.current.focus();
   };
 
@@ -554,6 +802,7 @@ export function TemplateBadgeTextarea({
       // Just trigger a display update to ensure everything renders correctly
       shouldUpdateDisplay.current = true;
       setShowAutocomplete(false);
+      setShowTokenAutocomplete(false);
     }, 200);
   };
 
@@ -566,6 +815,9 @@ export function TemplateBadgeTextarea({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Handle Enter key to insert line breaks
     if (e.key === "Enter") {
+      if (showAutocomplete || showTokenAutocomplete) {
+        return;
+      }
       e.preventDefault();
       document.execCommand("insertLineBreak");
     }
@@ -614,7 +866,14 @@ export function TemplateBadgeTextarea({
         onSelect={handleAutocompleteSelect}
         position={autocompletePosition}
       />
+      <TokenAutocomplete
+        filter={tokenFilter}
+        isOpen={showTokenAutocomplete}
+        onClose={() => setShowTokenAutocomplete(false)}
+        onSelect={handleTokenAutocompleteSelect}
+        options={filteredTokenOptions}
+        position={tokenAutocompletePosition}
+      />
     </>
   );
 }
-

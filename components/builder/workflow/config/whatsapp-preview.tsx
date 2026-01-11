@@ -1,11 +1,75 @@
 "use client";
 
 import { cn } from "@/lib/builder/utils";
+import type { Template, TemplateComponent, TemplateButton } from "@/types";
 
 type PreviewProps = {
   actionType: string;
   config: Record<string, unknown>;
+  template?: Template;
 };
+
+type TemplateParamEntry = { key?: string; text?: string };
+
+function parseParams(raw: unknown): TemplateParamEntry[] {
+  if (Array.isArray(raw)) return raw as TemplateParamEntry[];
+  if (typeof raw !== "string" || raw.trim().length === 0) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as TemplateParamEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceTemplateParams(
+  text: string,
+  params: TemplateParamEntry[],
+  format: string
+): string {
+  if (!text || !params.length) return text;
+  let result = text;
+
+  if (format === "named") {
+    for (const entry of params) {
+      if (!entry?.key) continue;
+      const pattern = new RegExp(
+        `\\{\\{\\s*${escapeRegExp(entry.key)}\\s*\\}\\}`,
+        "g"
+      );
+      result = result.replace(pattern, entry.text || "");
+    }
+    return result;
+  }
+
+  params.forEach((entry, index) => {
+    const key = entry?.key ? Number(entry.key) : index + 1;
+    if (!Number.isFinite(key)) return;
+    const pattern = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+    result = result.replace(pattern, entry?.text || "");
+  });
+
+  return result;
+}
+
+function getTemplateComponent(
+  template: Template | undefined,
+  type: TemplateComponent["type"]
+): TemplateComponent | undefined {
+  return template?.components?.find((component) => component.type === type);
+}
+
+function getTemplateButtons(template?: Template): TemplateButton[] {
+  if (!template?.components?.length) return [];
+  const buttonsComponent = template.components.find(
+    (component) => component.type === "BUTTONS"
+  );
+  return buttonsComponent?.buttons || [];
+}
 
 function getPreviewText(actionType: string, config: Record<string, unknown>) {
   switch (actionType) {
@@ -57,9 +121,51 @@ function parseSections(raw: unknown): Array<{ rows?: Array<{ title?: string }> }
   }
 }
 
-export function WhatsAppPreview({ actionType, config }: PreviewProps) {
+export function WhatsAppPreview({ actionType, config, template }: PreviewProps) {
+  const isTemplate =
+    actionType === "Send Template" || actionType === "whatsapp/send-template";
   const text = getPreviewText(actionType, config);
-  if (!text) return null;
+
+  const templateFormat =
+    String(config.parameterFormat || template?.parameterFormat || "").trim() ||
+    "positional";
+  const bodyParams = parseParams(config.bodyParams);
+  const headerParams = parseParams(config.headerParams);
+
+  const templateBodyRaw = String(
+    getTemplateComponent(template, "BODY")?.text || template?.content || ""
+  );
+  const templateHeaderComponent = getTemplateComponent(template, "HEADER");
+  const templateHeaderRaw = String(
+    templateHeaderComponent?.format === "TEXT"
+      ? templateHeaderComponent?.text || ""
+      : ""
+  );
+  const templateFooterRaw = String(
+    getTemplateComponent(template, "FOOTER")?.text || ""
+  );
+  const templateButtons = getTemplateButtons(template);
+
+  const templateBody = replaceTemplateParams(
+    templateBodyRaw,
+    bodyParams,
+    templateFormat
+  );
+  const templateHeader = replaceTemplateParams(
+    templateHeaderRaw,
+    headerParams,
+    templateFormat
+  );
+  const templateFooter = replaceTemplateParams(
+    templateFooterRaw,
+    bodyParams,
+    templateFormat
+  );
+
+  const shouldRenderTemplatePreview =
+    isTemplate && (templateBody || templateHeader || templateFooter);
+
+  if (!text && !shouldRenderTemplatePreview) return null;
 
   const buttons = parseButtons(config.buttons);
   const sections = parseSections(config.sections);
@@ -70,14 +176,54 @@ export function WhatsAppPreview({ actionType, config }: PreviewProps) {
         Preview do WhatsApp
       </div>
       <div className="mt-3 space-y-2">
-        <div
-          className={cn(
-            "max-w-[260px] rounded-2xl rounded-bl-sm bg-emerald-500/10 px-4 py-3 text-sm text-white",
-            "shadow-[0_0_24px_rgba(16,185,129,0.1)]"
-          )}
-        >
-          {text}
-        </div>
+        {shouldRenderTemplatePreview ? (
+          <>
+            {templateHeader && (
+              <div
+                className={cn(
+                  "max-w-[260px] rounded-2xl rounded-bl-sm bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-white",
+                  "shadow-[0_0_24px_rgba(16,185,129,0.1)]"
+                )}
+              >
+                {templateHeader}
+              </div>
+            )}
+            <div
+              className={cn(
+                "max-w-[260px] whitespace-pre-line rounded-2xl rounded-bl-sm bg-emerald-500/10 px-4 py-3 text-sm text-white",
+                "shadow-[0_0_24px_rgba(16,185,129,0.1)]"
+              )}
+            >
+              {templateBody || text}
+              {templateFooter && (
+                <div className="mt-2 text-xs text-white/70">
+                  {templateFooter}
+                </div>
+              )}
+            </div>
+            {templateButtons.length > 0 && (
+              <div className="space-y-2">
+                {templateButtons.slice(0, 3).map((button, index) => (
+                  <div
+                    className="max-w-[260px] rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-xs text-white/80"
+                    key={`${button.text}-${index}`}
+                  >
+                    {button.text || "Botao"}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div
+            className={cn(
+              "max-w-[260px] rounded-2xl rounded-bl-sm bg-emerald-500/10 px-4 py-3 text-sm text-white",
+              "shadow-[0_0_24px_rgba(16,185,129,0.1)]"
+            )}
+          >
+            {text}
+          </div>
+        )}
 
         {buttons.length > 0 && (
           <div className="space-y-2">

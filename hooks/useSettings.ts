@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { settingsService } from '../services/settingsService';
-import { AppSettings } from '../types';
+import { AppSettings, WorkflowExecutionConfig } from '../types';
 import { useAccountLimits } from './useAccountLimits';
 import {
   checkAccountHealth,
@@ -228,6 +228,13 @@ export const useSettingsController = () => {
     retry: false,
   })
 
+  const workflowExecutionQuery = useQuery({
+    queryKey: ['workflowExecutionConfig'],
+    queryFn: settingsService.getWorkflowExecutionConfig,
+    staleTime: 60 * 1000,
+    retry: false,
+  })
+
 
   // Available domains query (auto-detect from Vercel)
   const domainsQuery = useQuery({
@@ -353,6 +360,18 @@ export const useSettingsController = () => {
     },
     onError: (err: any) => {
       toast.error(err?.message || 'Erro ao salvar configuracao de agendamento')
+    },
+  })
+
+  const saveWorkflowExecutionMutation = useMutation({
+    mutationFn: (data: Partial<WorkflowExecutionConfig>) =>
+      settingsService.saveWorkflowExecutionConfig(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflowExecutionConfig'] })
+      toast.success('Configuração de execução salva!')
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Erro ao salvar configuração de execução')
     },
   })
 
@@ -760,6 +779,11 @@ export const useSettingsController = () => {
     calendarBookingLoading: calendarBookingQuery.isLoading,
     saveCalendarBooking: saveCalendarBookingMutation.mutateAsync,
     isSavingCalendarBooking: saveCalendarBookingMutation.isPending,
+
+    workflowExecution: workflowExecutionQuery.data || null,
+    workflowExecutionLoading: workflowExecutionQuery.isLoading,
+    saveWorkflowExecution: saveWorkflowExecutionMutation.mutateAsync,
+    isSavingWorkflowExecution: saveWorkflowExecutionMutation.isPending,
 
   };
 };  

@@ -8,13 +8,12 @@ export type AiRoutesConfig = {
   generateTemplate: boolean
   generateUtilityTemplates: boolean
   generateFlowForm: boolean
-  workflowBuilder: boolean
 }
 
 export type AiFallbackConfig = {
   enabled: boolean
-  provider: AIProvider
-  model: string
+  order: AIProvider[]
+  models: Record<AIProvider, string>
 }
 
 export type AiPromptsConfig = {
@@ -28,13 +27,16 @@ export const DEFAULT_AI_ROUTES: AiRoutesConfig = {
   generateTemplate: true,
   generateUtilityTemplates: true,
   generateFlowForm: true,
-  workflowBuilder: false,
 }
 
 export const DEFAULT_AI_FALLBACK: AiFallbackConfig = {
   enabled: false,
-  provider: 'openai',
-  model: 'gpt-5.1-mini',
+  order: ['google', 'openai', 'anthropic'],
+  models: {
+    google: 'gemini-2.5-flash',
+    openai: 'gpt-5.1-mini',
+    anthropic: 'claude-sonnet-4-5',
+  },
 }
 
 export const DEFAULT_AI_PROMPTS: AiPromptsConfig = {

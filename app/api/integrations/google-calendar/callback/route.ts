@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   exchangeCodeForTokens,
+  fetchGoogleAccountEmail,
   saveTokens,
   buildDefaultCalendarConfig,
   saveCalendarConfig,
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest) {
     const tokens = await exchangeCodeForTokens(code)
     await saveTokens(tokens)
 
-    const config = await buildDefaultCalendarConfig()
+    const accountEmail = await fetchGoogleAccountEmail(tokens.accessToken)
+    const config = await buildDefaultCalendarConfig(accountEmail)
     await saveCalendarConfig(config)
 
     await ensureCalendarChannel(config.calendarId)

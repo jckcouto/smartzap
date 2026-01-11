@@ -1,6 +1,6 @@
 import type { AiFallbackConfig, AiPromptsConfig, AiRoutesConfig } from '../lib/ai/ai-center-defaults';
 import { storage } from '../lib/storage';
-import { AppSettings, CalendarBookingConfig } from '../types';
+import { AppSettings, CalendarBookingConfig, WorkflowExecutionConfig } from '../types';
 
 export const settingsService = {
   /**
@@ -55,6 +55,33 @@ export const settingsService = {
       const error = await response.json().catch(() => ({}))
       throw new Error((error as any)?.error || 'Failed to save workflow builder default')
     }
+  },
+
+  // =============================================================================
+  // WORKFLOW EXECUTION SETTINGS
+  // =============================================================================
+
+  getWorkflowExecutionConfig: async (): Promise<{
+    ok: boolean;
+    source: 'db' | 'env';
+    config: WorkflowExecutionConfig;
+  }> => {
+    const response = await fetch('/api/settings/workflow-execution', { cache: 'no-store' })
+    if (!response.ok) throw new Error('Failed to fetch workflow execution config')
+    return response.json()
+  },
+
+  saveWorkflowExecutionConfig: async (data: Partial<WorkflowExecutionConfig>): Promise<WorkflowExecutionConfig> => {
+    const response = await fetch('/api/settings/workflow-execution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const json = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error((json as any)?.error || 'Failed to save workflow execution config')
+    }
+    return (json as any)?.config as WorkflowExecutionConfig
   },
 
   // =============================================================================

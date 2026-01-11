@@ -12,6 +12,7 @@ export {
     streamText,
     generateJSON,
     clearSettingsCache,
+    MissingAIKeyError,
     type AISettings,
     type GenerateTextOptions,
     type StreamTextOptions,

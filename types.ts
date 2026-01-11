@@ -232,6 +232,12 @@ export interface CalendarBookingConfig {
   workingHours: WorkingHoursDay[];
 }
 
+export interface WorkflowExecutionConfig {
+  retryCount: number;
+  retryDelayMs: number;
+  timeoutMs: number;
+}
+
 export interface TestContact {
   name?: string;
   phone: string;

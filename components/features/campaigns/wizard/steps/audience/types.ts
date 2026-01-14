@@ -186,9 +186,3 @@ export interface ContactSelectionListProps {
   isAutoSelection: boolean;
   onSwitchToManual?: () => void;
 }
-
-export interface LimitWarningProps {
-  recipientCount: number;
-  currentLimit: number;
-  onShowUpgradeModal: () => void;
-}

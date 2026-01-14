@@ -9,10 +9,10 @@ import {
   SegmentsSheet,
   RefineSheet,
   ContactSelectionList,
-  LimitWarning,
   LegacyAudienceMode,
   useAudienceSelection,
 } from './audience';
+import { LimitWarning } from '@/components/ui/LimitWarning';
 
 // Re-export types for backward compatibility
 export type {

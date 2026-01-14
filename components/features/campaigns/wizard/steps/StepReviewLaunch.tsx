@@ -15,12 +15,12 @@ import {
   SummaryCards,
   CampaignDetails,
   FinalCheckWarning,
-  LimitWarning,
   SchedulingOptions,
   FixedValueDialog,
   PrecheckSection,
   ContactQuickEditWrapper,
 } from './review';
+import { LimitWarning } from '@/components/ui/LimitWarning';
 
 export interface StepReviewLaunchProps {
   pricing: PricingBreakdown;
@@ -159,7 +159,12 @@ export function StepReviewLaunch(props: StepReviewLaunchProps) {
       />
 
       {isOverLimit && (
-        <LimitWarning recipientCount={recipientCount} currentLimit={currentLimit} setStep={setStep} />
+        <LimitWarning
+          recipientCount={recipientCount}
+          currentLimit={currentLimit}
+          variant="compact"
+          onGoBack={() => setStep(2)}
+        />
       )}
     </div>
   );

@@ -4,7 +4,20 @@ import { toast } from 'sonner';
 import { templateService, UtilityCategory, GeneratedTemplate, GenerateUtilityParams } from '../services/templateService';
 import { manualDraftsService } from '../services/manualDraftsService';
 import { Template } from '../types';
-import { CreateTemplateSchema } from '@/lib/whatsapp/validators/template.schema';
+import {
+  filterTemplates,
+  filterByDraftIds,
+  filterExcludingIds,
+  computeDraftSendStates,
+  getDraftBlockReason,
+  toggleTemplateSelection,
+  selectAllTemplatesByName,
+  selectAllGeneratedTemplates,
+  clearSelection,
+  pruneSelection,
+  removeFromSelection,
+  type DraftSendState,
+} from '@/lib/business/template';
 
 // Informações das categorias de utility para o UI
 export const UTILITY_CATEGORIES: Record<UtilityCategory, { name: string; icon: string }> = {
@@ -114,45 +127,8 @@ export const useTemplatesController = () => {
     return ids
   }, [manualDraftsQuery.data])
 
-  type ManualDraftSendState = {
-    canSend: boolean
-    reason?: string
-  }
-
-  const manualDraftSendStateById = useMemo<Record<string, ManualDraftSendState>>(() => {
-    const map: Record<string, ManualDraftSendState> = {}
-
-    const drafts = manualDraftsQuery.data || []
-    for (const d of drafts) {
-      // Regra: para enviar para a Meta, precisamos de um spec válido.
-      // (Templates antigos/bugados podem não ter spec; nesses casos, forçamos o usuário a abrir/salvar no editor.)
-      if (!d?.spec) {
-        map[d.id] = {
-          canSend: false,
-          reason: 'Rascunho incompleto: abra e salve no editor antes de enviar.',
-        }
-        continue
-      }
-
-      const parsed = CreateTemplateSchema.safeParse(d.spec)
-      if (parsed.success) {
-        map[d.id] = { canSend: true }
-        continue
-      }
-
-      const first = parsed.error.issues?.[0]
-      const baseMessage = first?.message || 'Template inválido.'
-      const hint = baseMessage.toLowerCase().includes('não pode começar')
-        ? `${baseMessage} (Meta: 2388299)`
-        : baseMessage
-
-      map[d.id] = {
-        canSend: false,
-        reason: hint,
-      }
-    }
-
-    return map
+  const manualDraftSendStateById = useMemo<Record<string, DraftSendState>>(() => {
+    return computeDraftSendStates(manualDraftsQuery.data || [])
   }, [manualDraftsQuery.data])
 
   // Ao trocar abas/filtros, zera seleção para evitar ações em itens "de outra tela".
@@ -165,14 +141,7 @@ export const useTemplatesController = () => {
 
   // Se um rascunho sumir do backend/cache, remove da seleção.
   useEffect(() => {
-    setSelectedManualDraftIds((prev) => {
-      if (prev.size === 0) return prev
-      const next = new Set<string>()
-      for (const id of prev) {
-        if (manualDraftIds.has(id)) next.add(id)
-      }
-      return next
-    })
+    setSelectedManualDraftIds(prev => pruneSelection(prev, manualDraftIds))
   }, [manualDraftIds])
 
   // --- Mutations ---
@@ -384,9 +353,9 @@ export const useTemplatesController = () => {
   })
 
   const submitManualDraft = (id: string) => {
-    const state = manualDraftSendStateById[id]
-    if (state && !state.canSend) {
-      toast.error(state.reason || 'Corrija o template antes de enviar para a Meta')
+    const blockReason = getDraftBlockReason(manualDraftSendStateById, id)
+    if (blockReason) {
+      toast.error(blockReason)
       return
     }
 
@@ -404,12 +373,7 @@ export const useTemplatesController = () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
       toast.success('Rascunho excluído');
 
-      setSelectedManualDraftIds((prev) => {
-        if (!prev.has(id)) return prev
-        const next = new Set(prev)
-        next.delete(id)
-        return next
-      })
+      setSelectedManualDraftIds(prev => removeFromSelection(prev, id))
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Erro ao excluir rascunho');
@@ -465,16 +429,15 @@ export const useTemplatesController = () => {
   // --- Logic ---
   const filteredTemplates = useMemo(() => {
     if (!templatesQuery.data) return [];
-    return templatesQuery.data.filter(t => {
-      const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.content.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = categoryFilter === 'ALL' || t.category === categoryFilter;
-      const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
-      return matchesSearch && matchesCategory && matchesStatus;
+    return filterTemplates(templatesQuery.data, {
+      searchTerm,
+      category: categoryFilter,
+      status: statusFilter,
     });
   }, [templatesQuery.data, searchTerm, categoryFilter, statusFilter]);
 
   const visibleManualDraftTemplates = useMemo(() => {
-    return filteredTemplates.filter((t) => manualDraftIds.has(t.id))
+    return filterByDraftIds(filteredTemplates, manualDraftIds)
   }, [filteredTemplates, manualDraftIds])
 
   const visibleManualDraftIdList = useMemo(() => {
@@ -483,7 +446,7 @@ export const useTemplatesController = () => {
 
   const metaSelectableTemplates = useMemo(() => {
     // Rascunhos manuais não podem entrar em seleção/bulk delete (isso é operação da Meta).
-    return filteredTemplates.filter((t) => !manualDraftIds.has(t.id))
+    return filterExcludingIds(filteredTemplates, manualDraftIds)
   }, [filteredTemplates, manualDraftIds])
 
   const handleGenerateAI = () => {
@@ -528,23 +491,11 @@ export const useTemplatesController = () => {
   };
 
   const handleToggleTemplate = (id: string) => {
-    setSelectedTemplates(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    setSelectedTemplates(prev => toggleTemplateSelection(prev, id));
   };
 
   const handleSelectAllTemplates = () => {
-    if (selectedTemplates.size === generatedTemplates.length) {
-      setSelectedTemplates(new Set());
-    } else {
-      setSelectedTemplates(new Set(generatedTemplates.map(t => t.id)));
-    }
+    setSelectedTemplates(prev => selectAllGeneratedTemplates(generatedTemplates, prev));
   };
 
   const handleCopyTemplate = (template: GeneratedTemplate) => {
@@ -672,33 +623,15 @@ export const useTemplatesController = () => {
 
   // --- Multi-select Handlers for Meta Templates ---
   const handleToggleMetaTemplate = (templateName: string) => {
-    setSelectedMetaTemplates(prev => {
-      const next = new Set(prev);
-      if (next.has(templateName)) {
-        next.delete(templateName);
-      } else {
-        next.add(templateName);
-      }
-      return next;
-    });
+    setSelectedMetaTemplates(prev => toggleTemplateSelection(prev, templateName));
   };
 
   const handleSelectAllMetaTemplates = () => {
-    const eligible = metaSelectableTemplates
-    if (eligible.length === 0) {
-      setSelectedMetaTemplates(new Set())
-      return
-    }
-
-    if (selectedMetaTemplates.size === eligible.length) {
-      setSelectedMetaTemplates(new Set());
-    } else {
-      setSelectedMetaTemplates(new Set(eligible.map(t => t.name)));
-    }
+    setSelectedMetaTemplates(prev => selectAllTemplatesByName(metaSelectableTemplates, prev));
   };
 
   const handleClearSelection = () => {
-    setSelectedMetaTemplates(new Set());
+    setSelectedMetaTemplates(clearSelection());
   };
 
   const handleBulkDeleteClick = () => {
@@ -720,30 +653,19 @@ export const useTemplatesController = () => {
 
   // --- Multi-select Handlers for Manual Drafts (local) ---
   const handleToggleManualDraft = (id: string) => {
-    setSelectedManualDraftIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    setSelectedManualDraftIds(prev => toggleTemplateSelection(prev, id))
   }
 
   const handleSelectAllManualDrafts = () => {
-    const eligible = visibleManualDraftIdList
-    if (eligible.length === 0) {
-      setSelectedManualDraftIds(new Set())
-      return
-    }
-
-    if (selectedManualDraftIds.size === eligible.length) {
-      setSelectedManualDraftIds(new Set())
-    } else {
-      setSelectedManualDraftIds(new Set(eligible))
-    }
+    setSelectedManualDraftIds(prev => {
+      if (visibleManualDraftIdList.length === 0) return clearSelection()
+      if (prev.size === visibleManualDraftIdList.length) return clearSelection()
+      return new Set(visibleManualDraftIdList)
+    })
   }
 
   const handleClearManualDraftSelection = () => {
-    setSelectedManualDraftIds(new Set())
+    setSelectedManualDraftIds(clearSelection())
   }
 
   return {

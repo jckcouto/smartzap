@@ -2,7 +2,16 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { settingsService } from '../services/settingsService';
-import { AppSettings, WorkflowExecutionConfig } from '../types';
+import type {
+  AppSettings,
+  WorkflowExecutionConfig,
+  PhoneNumber,
+  DomainOption,
+  WebhookInfo,
+} from '../types/settings.types';
+
+// Re-export types for backward compatibility
+export type { PhoneNumber, DomainOption } from '../types/settings.types';
 import { useAccountLimits } from './useAccountLimits';
 import {
   checkAccountHealth,
@@ -10,21 +19,15 @@ import {
   getHealthSummary,
   type AccountHealth
 } from '../lib/account-health';
-import { Database, Zap, MessageSquare, Bot } from 'lucide-react';
+import { DEFAULT_WEBHOOK_PATH } from '../lib/business/settings';
+import { Zap, MessageSquare } from 'lucide-react';
 import React from 'react';
 import { SetupStep } from '../components/features/settings/SetupWizardView';
 
-interface WebhookInfo {
-  webhookUrl: string;
-  webhookToken: string;
-  stats: {
-    lastEventAt: string | null;
-    todayDelivered: number;
-    todayRead: number;
-    todayFailed: number;
-  } | null;
-}
-
+/**
+ * Meta webhook subscription status.
+ * Local interface as it's specific to the hook's query response.
+ */
 interface WebhookSubscriptionStatus {
   ok: boolean;
   wabaId?: string;
@@ -33,57 +36,6 @@ interface WebhookSubscriptionStatus {
   apps?: Array<{ id?: string; name?: string; subscribed_fields?: string[] }>;
   error?: string;
   details?: unknown;
-}
-
-
-// System health status
-interface HealthStatus {
-  overall: 'healthy' | 'degraded' | 'unhealthy';
-  services: {
-    database: {
-      status: 'ok' | 'error' | 'not_configured';
-      provider?: 'supabase' | 'none';
-      latency?: number;
-      message?: string;
-    };
-    qstash: {
-      status: 'ok' | 'error' | 'not_configured';
-      message?: string;
-    };
-    whatsapp: {
-      status: 'ok' | 'error' | 'not_configured';
-      source?: 'db' | 'env' | 'none';
-      phoneNumber?: string;
-      message?: string;
-    };
-  };
-  // Vercel project info for dynamic linking
-  vercel?: {
-    dashboardUrl: string | null;
-    storesUrl: string | null;
-    env: string;
-  };
-  timestamp: string;
-}
-
-// Phone number from Meta API
-export interface PhoneNumber {
-  id: string;
-  display_phone_number: string;
-  verified_name?: string;
-  quality_rating?: string;
-  webhook_configuration?: {
-    phone_number?: string;
-    whatsapp_business_account?: string;
-    application?: string;
-  };
-}
-
-// Domain option for webhook URL selection
-export interface DomainOption {
-  url: string;
-  source: string;
-  recommended: boolean;
 }
 
 export const useSettingsController = () => {
@@ -733,7 +685,7 @@ export const useSettingsController = () => {
     removeWebhookOverride,
     // Available domains for webhook URL
     availableDomains: domainsQuery.data?.domains || [],
-    webhookPath: domainsQuery.data?.webhookPath || '/api/webhook',
+    webhookPath: domainsQuery.data?.webhookPath || DEFAULT_WEBHOOK_PATH,
     selectedDomain: domainsQuery.data?.currentSelection || null,
     // System health
     systemHealth: healthQuery.data || null,

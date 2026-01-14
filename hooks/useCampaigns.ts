@@ -3,8 +3,8 @@ import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-quer
 import { campaignService, type CampaignListResult } from '../services/campaignService';
 import { Campaign } from '../types';
 import { useRealtimeQuery } from './useRealtimeQuery';
-
-const ITEMS_PER_PAGE = 20;
+import { PAGINATION, CACHE, REALTIME } from '@/lib/constants';
+import { invalidateCampaigns } from '@/lib/query-invalidation';
 
 type CampaignsQueryData =
   | Campaign[]
@@ -34,7 +34,7 @@ export const useCampaignsQuery = (
   params: { page: number; search: string; status: string },
   initialData?: CampaignListResult
 ) => {
-  const limit = ITEMS_PER_PAGE;
+  const limit = PAGINATION.campaigns;
   const offset = Math.max(0, (params.page - 1) * limit);
   return useRealtimeQuery({
     queryKey: ['campaigns', { page: params.page, search: params.search, status: params.status }],
@@ -46,13 +46,13 @@ export const useCampaignsQuery = (
     }),
     initialData,
     placeholderData: (previous) => previous,
-    staleTime: 15 * 1000,  // 15 segundos
+    staleTime: CACHE.campaigns,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     // Realtime configuration
     table: 'campaigns',
     events: ['INSERT', 'UPDATE', 'DELETE'],
-    debounceMs: 200,
+    debounceMs: REALTIME.debounceDefault,
   });
 };
 
@@ -100,8 +100,7 @@ export const useCampaignMutations = () => {
     onSuccess: () => {
       // Server-side cache was invalidated via revalidateTag
       // Force refetch to get fresh data from invalidated cache
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['recentCampaigns'] });
+      invalidateCampaigns(queryClient);
     },
     onSettled: () => {
       setProcessingDeleteId(undefined);
@@ -119,8 +118,7 @@ export const useCampaignMutations = () => {
     onSuccess: (clonedCampaign) => {
       setLastDuplicatedCampaignId(clonedCampaign?.id);
       // Server-side cache foi invalidado via revalidateTag (quando aplicável)
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      queryClient.invalidateQueries({ queryKey: ['recentCampaigns'] });
+      invalidateCampaigns(queryClient);
     },
     onSettled: () => {
       setProcessingDuplicateId(undefined);
@@ -155,7 +153,7 @@ export const useCampaignsController = (initialData?: CampaignListResult) => {
 
   const campaigns = data?.data || [];
   const totalFiltered = data?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGINATION.campaigns));
   const {
     deleteCampaign,
     duplicateCampaign,

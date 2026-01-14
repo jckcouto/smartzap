@@ -5,71 +5,13 @@ import { toast } from 'sonner';
 import { campaignService } from '../services';
 import { useCampaignRealtime } from './useCampaignRealtime';
 import { Campaign, CampaignStatus, MessageStatus, Message } from '../types';
-
-// Polling interval as backup while Realtime is connected (60 seconds)
-const BACKUP_POLLING_INTERVAL = 60 * 1000;
-// Fallback polling when Realtime is not connected (keeps stats fresh without F5)
-const DISCONNECTED_POLLING_INTERVAL = 10 * 1000;
-
-function mergeCampaignCountersMonotonic(oldCampaign: Campaign | undefined, fresh: Campaign | undefined): Campaign | undefined {
-  if (!fresh) return oldCampaign;
-  if (!oldCampaign) return fresh;
-
-  // Aceita reset explícito (ex.: voltar para DRAFT) para não travar valores antigos.
-  const looksLikeReset = (
-    fresh.status === CampaignStatus.DRAFT &&
-    !fresh.startedAt &&
-    Number(fresh.sent || 0) === 0 &&
-    Number(fresh.failed || 0) === 0 &&
-    Number(fresh.skipped || 0) === 0
-  );
-
-  if (looksLikeReset) return fresh;
-
-  const merged: Campaign = { ...fresh };
-  merged.sent = Math.max(Number(oldCampaign.sent || 0), Number(fresh.sent || 0));
-  merged.failed = Math.max(Number(oldCampaign.failed || 0), Number(fresh.failed || 0));
-  merged.skipped = Math.max(Number(oldCampaign.skipped || 0), Number(fresh.skipped || 0));
-  merged.delivered = Math.max(Number(oldCampaign.delivered || 0), Number(fresh.delivered || 0));
-  merged.read = Math.max(Number(oldCampaign.read || 0), Number(fresh.read || 0));
-  merged.recipients = Math.max(Number(oldCampaign.recipients || 0), Number(fresh.recipients || 0));
-  return merged;
-}
-
-function mergeMessageStatsMonotonic(
-  oldData: any,
-  freshData: any
-): any {
-  if (!freshData || typeof freshData !== 'object') return oldData;
-  if (!oldData || typeof oldData !== 'object') return freshData;
-  if (!freshData.stats || !oldData.stats) return freshData;
-
-  const oldStats = oldData.stats
-  const freshStats = freshData.stats
-
-  const sent = Math.max(Number(oldStats.sent || 0), Number(freshStats.sent || 0));
-  const failed = Math.max(Number(oldStats.failed || 0), Number(freshStats.failed || 0));
-  const skipped = Math.max(Number(oldStats.skipped || 0), Number(freshStats.skipped || 0));
-  const delivered = Math.max(Number(oldStats.delivered || 0), Number(freshStats.delivered || 0));
-  const read = Math.max(Number(oldStats.read || 0), Number(freshStats.read || 0));
-
-  const total = Math.max(Number(oldStats.total || 0), Number(freshStats.total || 0));
-  const pending = Math.max(0, total - (sent + failed + skipped));
-
-  return {
-    ...freshData,
-    stats: {
-      ...freshStats,
-      total,
-      pending,
-      sent,
-      delivered,
-      read,
-      skipped,
-      failed,
-    },
-  };
-}
+import { getPollingInterval, isLargeCampaign } from '@/lib/constants';
+import {
+  mergeCampaignCountersMonotonic,
+  mergeMessageStatsMonotonic,
+  filterMessages,
+  calculateRealStats,
+} from '@/lib/business/campaign';
 
 export const useCampaignDetailsController = () => {
   const { id } = useParams<{ id: string }>();
@@ -87,11 +29,12 @@ export const useCampaignDetailsController = () => {
   const [isCancelingSchedule, setIsCancelingSchedule] = useState(false);
   const [isCancelingSend, setIsCancelingSend] = useState(false);
 
-  type CampaignMessagesResponse = Awaited<ReturnType<(typeof campaignService)['getMessages']>>
+  // Local type alias for service response (extends business module type)
+  type ServiceMessagesResponse = Awaited<ReturnType<(typeof campaignService)['getMessages']>>
 
   // Refs para merge monotônico (evita regressão visual quando broadcast chega antes do DB).
   const lastCampaignRef = useRef<Campaign | undefined>(undefined)
-  const lastMessagesRef = useRef<CampaignMessagesResponse | undefined>(undefined)
+  const lastMessagesRef = useRef<ServiceMessagesResponse | undefined>(undefined)
   const loadMoreTokenRef = useRef(0)
 
   // Fetch campaign data (com polling opcional calculado abaixo)
@@ -136,13 +79,12 @@ export const useCampaignDetailsController = () => {
     campaign?.status === CampaignStatus.SCHEDULED ||
     campaign?.status === CampaignStatus.COMPLETED;
 
-  const isLargeCampaign = (campaign?.recipients || 0) >= 10000;
+  const isLarge = isLargeCampaign(campaign?.recipients || 0);
 
   const pollingInterval = useMemo(() => {
     if (!isActiveCampaign) return false as const;
-    if (isLargeCampaign) return BACKUP_POLLING_INTERVAL;
-    return isRealtimeConnected ? BACKUP_POLLING_INTERVAL : DISCONNECTED_POLLING_INTERVAL;
-  }, [isActiveCampaign, isLargeCampaign, isRealtimeConnected]);
+    return getPollingInterval(isRealtimeConnected, isLarge);
+  }, [isActiveCampaign, isLarge, isRealtimeConnected]);
 
   const metricsQuery = useQuery<any | null>({
     queryKey: ['campaignMetrics', id],
@@ -172,7 +114,7 @@ export const useCampaignDetailsController = () => {
   }, [filterStatus, includeReadInDelivered])
 
   // Fetch messages with optional polling
-  const messagesQuery = useQuery<CampaignMessagesResponse>({
+  const messagesQuery = useQuery<ServiceMessagesResponse>({
     queryKey: ['campaignMessages', id, filterStatus, includeReadInDelivered],
     queryFn: () => campaignService.getMessages(id!, {
       status: filterStatus || undefined,
@@ -186,14 +128,16 @@ export const useCampaignDetailsController = () => {
     refetchInterval: pollingInterval,
     select: (fresh) => {
       const merged = mergeMessageStatsMonotonic(lastMessagesRef.current, fresh)
-      lastMessagesRef.current = merged
-      return merged
+      // merged is always defined when fresh is defined (select only called with valid data)
+      const result = merged ?? fresh
+      lastMessagesRef.current = result
+      return result
     },
   });
 
   const cachedTempMessages = useMemo(() => {
     if (!isTemp || !id) return undefined
-    return queryClient.getQueryData<CampaignMessagesResponse>(['campaignMessages', id, filterStatus, includeReadInDelivered])
+    return queryClient.getQueryData<ServiceMessagesResponse>(['campaignMessages', id, filterStatus, includeReadInDelivered])
   }, [isTemp, id, filterStatus, includeReadInDelivered, queryClient])
 
   const messagesData = (isTemp ? cachedTempMessages : messagesQuery.data)
@@ -382,23 +326,15 @@ export const useCampaignDetailsController = () => {
     }
   })
 
+  // Use extracted pure function for filtering
   const filteredMessages = useMemo(() => {
-    if (!allLoadedMessages) return [];
-    return allLoadedMessages.filter(m =>
-      m.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.contactPhone.includes(searchTerm)
-    );
+    return filterMessages(allLoadedMessages, { searchTerm });
   }, [allLoadedMessages, searchTerm]);
 
   // Calculate real stats from messages (fallback if campaign stats not available)
+  // Uses extracted pure function
   const realStats = useMemo(() => {
-    if (!allLoadedMessages || allLoadedMessages.length === 0) return null;
-    const sent = allLoadedMessages.filter(m => m.status === MessageStatus.SENT || m.status === MessageStatus.DELIVERED || m.status === MessageStatus.READ).length;
-    const failed = allLoadedMessages.filter(m => m.status === MessageStatus.FAILED).length;
-    const skipped = allLoadedMessages.filter(m => m.status === MessageStatus.SKIPPED).length;
-    const delivered = allLoadedMessages.filter(m => m.status === MessageStatus.DELIVERED || m.status === MessageStatus.READ).length;
-    const read = allLoadedMessages.filter(m => m.status === MessageStatus.READ).length;
-    return { sent, failed, skipped, delivered, read, total: allLoadedMessages.length };
+    return calculateRealStats(allLoadedMessages);
   }, [allLoadedMessages]);
 
   // Actions

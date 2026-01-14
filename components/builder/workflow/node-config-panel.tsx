@@ -1,32 +1,9 @@
+"use client";
+
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import {
-  Copy,
-  Eraser,
-  Eye,
-  EyeOff,
-  FileCode,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/builder/ui/alert-dialog";
-import { Button } from "@/components/builder/ui/button";
-import { CodeEditor } from "@/components/builder/ui/code-editor";
-import { Input } from "@/components/builder/ui/input";
-import { Label } from "@/components/builder/ui/label";
 import { api } from "@/lib/builder/api-client";
-import { integrationsAtom } from "@/lib/builder/integrations-store";
-import type { IntegrationType } from "@/lib/builder/types/integration";
 import { generateWorkflowCode } from "@/lib/builder/workflow-codegen";
 import {
   clearNodeStatusesAtom,
@@ -40,7 +17,6 @@ import {
   isWorkflowOwnerAtom,
   newlyCreatedNodeIdAtom,
   nodesAtom,
-  pendingIntegrationNodesAtom,
   propertiesPanelActiveTabAtom,
   selectedEdgeAtom,
   selectedNodeAtom,
@@ -48,104 +24,25 @@ import {
   showDeleteDialogAtom,
   updateNodeDataAtom,
 } from "@/lib/builder/workflow-store";
-import { findActionById } from "@/lib/builder/plugins";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { ActionConfig } from "./config/action-config";
-import { ActionGrid } from "./config/action-grid";
-
-import { TriggerConfig } from "./config/trigger-config";
 import { generateNodeCode } from "./utils/code-generators";
-import { WorkflowRuns } from "./workflow-runs";
+import {
+  EdgePropertiesPanel,
+  MultiSelectionPanel,
+  NodePropertiesPanel,
+  NON_ALPHANUMERIC_REGEX,
+  useAutoSelectIntegration,
+  WORD_SPLIT_REGEX,
+  WorkspacePropertiesPanel,
+  type WorkflowNode,
+} from "./node-config";
 
-// Regex constants
-const NON_ALPHANUMERIC_REGEX = /[^a-zA-Z0-9\s]/g;
-const WORD_SPLIT_REGEX = /\s+/;
-
-// System actions that need integrations (not in plugin registry)
-const SYSTEM_ACTION_INTEGRATIONS: Record<string, IntegrationType> = {
-  "Database Query": "database",
-};
-const WHATSAPP_GLOBAL_INTEGRATION_ID = "whatsapp-global";
-
-// Multi-selection panel component
-const MultiSelectionPanel = ({
-  selectedNodes,
-  selectedEdges,
-  onDelete,
-}: {
-  selectedNodes: { id: string; selected?: boolean }[];
-  selectedEdges: { id: string; selected?: boolean }[];
-  onDelete: () => void;
-}) => {
-  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
-
-  const nodeText = selectedNodes.length === 1 ? "node" : "nodes";
-  const edgeText = selectedEdges.length === 1 ? "linha" : "linhas";
-  const selectionParts: string[] = [];
-
-  if (selectedNodes.length > 0) {
-    selectionParts.push(`${selectedNodes.length} ${nodeText}`);
-  }
-  if (selectedEdges.length > 0) {
-    selectionParts.push(`${selectedEdges.length} ${edgeText}`);
-  }
-
-  const selectionText = selectionParts.join(" e ");
-
-  const handleDelete = () => {
-    onDelete();
-    setShowDeleteAlert(false);
-  };
-
-  return (
-    <>
-      <div className="flex size-full flex-col">
-        <div className="flex h-14 w-full shrink-0 items-center border-b bg-transparent px-4">
-          <h2 className="font-semibold text-foreground">Propriedades</h2>
-        </div>
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          <div className="space-y-2">
-            <Label>Selecao</Label>
-            <p className="text-muted-foreground text-sm">
-              {selectionText} selecionado
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 pt-4">
-            <Button
-              className="text-muted-foreground"
-              onClick={() => setShowDeleteAlert(true)}
-              size="sm"
-              variant="ghost"
-            >
-              <Trash2 className="mr-2 size-4" />
-              Excluir
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <AlertDialog onOpenChange={setShowDeleteAlert} open={showDeleteAlert}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir itens selecionados</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir {selectionText}? Esta ação nao
-              pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-};
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex UI logic with multiple conditions
+/**
+ * Main orchestrator component for the node configuration panel.
+ * Determines which panel to show based on the current selection state.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Orchestrator component with multiple states
 export const PanelInner = () => {
+  // Atoms
   const [selectedNodeId] = useAtom(selectedNodeAtom);
   const [selectedEdgeId] = useAtom(selectedEdgeAtom);
   const [nodes] = useAtom(nodesAtom);
@@ -163,26 +60,26 @@ export const PanelInner = () => {
   const setShowClearDialog = useSetAtom(showClearDialogAtom);
   const setShowDeleteDialog = useSetAtom(showDeleteDialogAtom);
   const clearNodeStatuses = useSetAtom(clearNodeStatusesAtom);
-  const setPendingIntegrationNodes = useSetAtom(pendingIntegrationNodesAtom);
   const [newlyCreatedNodeId, setNewlyCreatedNodeId] = useAtom(
     newlyCreatedNodeIdAtom
   );
-  const [showDeleteNodeAlert, setShowDeleteNodeAlert] = useState(false);
-  const [showDeleteEdgeAlert, setShowDeleteEdgeAlert] = useState(false);
-  const [showDeleteRunsAlert, setShowDeleteRunsAlert] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useAtom(propertiesPanelActiveTabAtom);
-  const refreshRunsRef = useRef<(() => Promise<void>) | null>(null);
-  const autoSelectAbortControllersRef = useRef<Record<string, AbortController>>(
-    {}
-  );
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-  const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId);
 
-  // Count multiple selections
+  // Local state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshRunsRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Derived state
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId) as
+    | WorkflowNode
+    | undefined;
+  const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId);
   const selectedNodes = nodes.filter((node) => node.selected);
   const selectedEdges = edges.filter((edge) => edge.selected);
   const hasMultipleSelections = selectedNodes.length + selectedEdges.length > 1;
+
+  // Use auto-select integration hook
+  const { handleConfigUpdate } = useAutoSelectIntegration(selectedNode ?? null);
 
   // Switch to Properties tab if Code tab is hidden for the selected node
   useEffect(() => {
@@ -200,67 +97,6 @@ export const PanelInner = () => {
       setActiveTab("properties");
     }
   }, [selectedNode, activeTab, setActiveTab]);
-
-  // Auto-fix invalid integration references when a node is selected
-  const globalIntegrations = useAtomValue(integrationsAtom);
-  useEffect(() => {
-    if (!(selectedNode && isOwner)) {
-      return;
-    }
-
-    const actionType = selectedNode.data.config?.actionType as
-      | string
-      | undefined;
-    const currentIntegrationId = selectedNode.data.config?.integrationId as
-      | string
-      | undefined;
-
-    // Skip if no action type or no integration configured
-    if (!(actionType && currentIntegrationId)) {
-      return;
-    }
-
-    // Get the required integration type for this action
-    const action = findActionById(actionType);
-    const integrationType: IntegrationType | undefined =
-      (action?.integration as IntegrationType | undefined) ||
-      SYSTEM_ACTION_INTEGRATIONS[actionType];
-
-    if (!integrationType) {
-      return;
-    }
-
-    // Check if current integration still exists
-    const integrationExists = globalIntegrations.some(
-      (i) => i.id === currentIntegrationId
-    );
-
-    if (integrationExists || currentIntegrationId === WHATSAPP_GLOBAL_INTEGRATION_ID) {
-      return;
-    }
-
-    // Current integration was deleted - find a replacement
-    const availableIntegrations = globalIntegrations.filter(
-      (i) => i.type === integrationType
-    );
-
-    if (availableIntegrations.length === 1) {
-      // Auto-select the only available integration
-      const newConfig = {
-        ...selectedNode.data.config,
-        integrationId: availableIntegrations[0].id,
-      };
-      updateNodeData({ id: selectedNode.id, data: { config: newConfig } });
-    } else if (availableIntegrations.length === 0) {
-      // No integrations available - clear the invalid reference
-      const newConfig = {
-        ...selectedNode.data.config,
-        integrationId: undefined,
-      };
-      updateNodeData({ id: selectedNode.id, data: { config: newConfig } });
-    }
-    // If multiple integrations exist, let the user choose manually
-  }, [selectedNode, globalIntegrations, isOwner, updateNodeData]);
 
   // Generate workflow code
   const workflowCode = useMemo(() => {
@@ -282,25 +118,31 @@ export const PanelInner = () => {
     return code;
   }, [nodes, edges, currentWorkflowName]);
 
-  const handleCopyCode = () => {
+  // Handlers
+  const handleCopyCode = useCallback(() => {
     if (selectedNode) {
       navigator.clipboard.writeText(generateNodeCode(selectedNode));
     }
-  };
+  }, [selectedNode]);
 
-  const handleCopyWorkflowCode = () => {
+  const handleCopyWorkflowCode = useCallback(() => {
     navigator.clipboard.writeText(workflowCode);
-    toast.success("Codigo cópiado");
-  };
+    toast.success("Codigo copiado");
+  }, [workflowCode]);
 
-  const handleDelete = () => {
+  const handleDeleteNode = useCallback(() => {
     if (selectedNodeId) {
       deleteNode(selectedNodeId);
-      setShowDeleteNodeAlert(false);
     }
-  };
+  }, [selectedNodeId, deleteNode]);
 
-  const handleToggleEnabled = () => {
+  const handleDeleteEdge = useCallback(() => {
+    if (selectedEdgeId) {
+      deleteEdge(selectedEdgeId);
+    }
+  }, [selectedEdgeId, deleteEdge]);
+
+  const handleToggleEnabled = useCallback(() => {
     if (selectedNode) {
       const currentEnabled = selectedNode.data.enabled ?? true;
       updateNodeData({
@@ -308,16 +150,9 @@ export const PanelInner = () => {
         data: { enabled: !currentEnabled },
       });
     }
-  };
+  }, [selectedNode, updateNodeData]);
 
-  const handleDeleteEdge = () => {
-    if (selectedEdgeId) {
-      deleteEdge(selectedEdgeId);
-      setShowDeleteEdgeAlert(false);
-    }
-  };
-
-  const handleDeleteAllRuns = async () => {
+  const handleDeleteAllRuns = useCallback(async () => {
     if (!currentWorkflowId) {
       return;
     }
@@ -325,151 +160,80 @@ export const PanelInner = () => {
     try {
       await api.workflow.deleteExecutions(currentWorkflowId);
       clearNodeStatuses();
-      setShowDeleteRunsAlert(false);
     } catch (error) {
       console.error("Failed to delete runs:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to delete runs";
       toast.error(errorMessage);
     }
-  };
+  }, [currentWorkflowId, clearNodeStatuses]);
 
-  const handleUpdateLabel = (label: string) => {
-    if (selectedNode) {
-      updateNodeData({ id: selectedNode.id, data: { label } });
-    }
-  };
-
-  const handleUpdateDescription = (description: string) => {
-    if (selectedNode) {
-      updateNodeData({ id: selectedNode.id, data: { description } });
-    }
-  };
-  const autoSelectIntegration = useCallback(
-    async (
-      nodeId: string,
-      actionType: string,
-      currentConfig: Record<string, unknown>,
-      abortSignal: AbortSignal
-    ) => {
-      // Get integration type - check plugin registry first, then system actions
-      const action = findActionById(actionType);
-      const integrationType: IntegrationType | undefined =
-        (action?.integration as IntegrationType | undefined) ||
-        SYSTEM_ACTION_INTEGRATIONS[actionType];
-
-      if (!integrationType) {
-        // No integration needed, remove from pending
-        setPendingIntegrationNodes((prev: Set<string>) => {
-          const next = new Set(prev);
-          next.delete(nodeId);
-          return next;
-        });
-        return;
+  const handleUpdateLabel = useCallback(
+    (label: string) => {
+      if (selectedNode) {
+        updateNodeData({ id: selectedNode.id, data: { label } });
       }
+    },
+    [selectedNode, updateNodeData]
+  );
 
-      try {
-        const all = await api.integration.getAll();
+  const handleUpdateDescription = useCallback(
+    (description: string) => {
+      if (selectedNode) {
+        updateNodeData({ id: selectedNode.id, data: { description } });
+      }
+    },
+    [selectedNode, updateNodeData]
+  );
 
-        // Check if this operation was aborted (actionType changed)
-        if (abortSignal.aborted) {
-          return;
+  const handleUpdateConfig = useCallback(
+    (key: string, value: string) => {
+      if (selectedNode) {
+        let newConfig = { ...selectedNode.data.config, [key]: value };
+
+        // When action type changes, clear the integrationId since it may not be valid
+        if (key === "actionType" && selectedNode.data.config?.integrationId) {
+          newConfig = { ...newConfig, integrationId: undefined };
         }
 
-        const filtered = all.filter((i) => i.type === integrationType);
+        updateNodeData({ id: selectedNode.id, data: { config: newConfig } });
 
-        if (integrationType === "whatsapp" && filtered.length === 0) {
-          const newConfig = {
-            ...currentConfig,
-            actionType,
-            integrationId: WHATSAPP_GLOBAL_INTEGRATION_ID,
-          };
-          updateNodeData({ id: nodeId, data: { config: newConfig } });
-          return;
-        }
-
-        // Auto-select if only one integration exists
-        if (filtered.length === 1 && !abortSignal.aborted) {
-          const newConfig = {
-            ...currentConfig,
-            actionType,
-            integrationId: filtered[0].id,
-          };
-          updateNodeData({ id: nodeId, data: { config: newConfig } });
-        }
-      } catch (error) {
-        console.error("Failed to auto-select integration:", error);
-      } finally {
-        // Always remove from pending set when done (unless aborted)
-        if (!abortSignal.aborted) {
-          setPendingIntegrationNodes((prev: Set<string>) => {
-            const next = new Set(prev);
-            next.delete(nodeId);
-            return next;
-          });
+        // Trigger auto-selection when action type changes
+        if (key === "actionType") {
+          handleConfigUpdate(
+            selectedNode.id,
+            key,
+            value,
+            selectedNode.data.config || {}
+          );
         }
       }
     },
-    [updateNodeData, setPendingIntegrationNodes]
+    [selectedNode, updateNodeData, handleConfigUpdate]
   );
 
-  const handleUpdateConfig = (key: string, value: string) => {
-    if (selectedNode) {
-      let newConfig = { ...selectedNode.data.config, [key]: value };
+  const handleUpdateWorkspaceName = useCallback(
+    async (newName: string) => {
+      setCurrentWorkflowName(newName);
 
-      // When action type changes, clear the integrationId since it may not be valid for the new action
-      if (key === "actionType" && selectedNode.data.config?.integrationId) {
-        newConfig = { ...newConfig, integrationId: undefined };
-      }
-
-      updateNodeData({ id: selectedNode.id, data: { config: newConfig } });
-
-      // When action type changes, auto-select integration if only one exists
-      if (key === "actionType") {
-        // Cancel any pending auto-select operation for this node
-        const existingController =
-          autoSelectAbortControllersRef.current[selectedNode.id];
-        if (existingController) {
-          existingController.abort();
+      // Save to database if workflow exists
+      if (currentWorkflowId) {
+        try {
+          await api.workflow.update(currentWorkflowId, {
+            name: newName,
+            nodes,
+            edges,
+          });
+        } catch (error) {
+          console.error("Failed to update workflow name:", error);
+          toast.error("Falha ao atualizar o nome do fluxo");
         }
-
-        // Create new AbortController for this operation
-        const newController = new AbortController();
-        autoSelectAbortControllersRef.current[selectedNode.id] = newController;
-
-        // Add to pending set before starting async check
-        setPendingIntegrationNodes((prev: Set<string>) =>
-          new Set(prev).add(selectedNode.id)
-        );
-        autoSelectIntegration(
-          selectedNode.id,
-          value,
-          newConfig,
-          newController.signal
-        );
       }
-    }
-  };
+    },
+    [currentWorkflowId, setCurrentWorkflowName, nodes, edges]
+  );
 
-  const handleUpdateWorkspaceName = async (newName: string) => {
-    setCurrentWorkflowName(newName);
-
-    // Save to database if workflow exists
-    if (currentWorkflowId) {
-      try {
-        await api.workflow.update(currentWorkflowId, {
-          name: newName,
-          nodes,
-          edges,
-        });
-      } catch (error) {
-        console.error("Failed to update workflow name:", error);
-        toast.error("Falha ao atualizar o nome do fluxo");
-      }
-    }
-  };
-
-  const handleRefreshRuns = async () => {
+  const handleRefreshRuns = useCallback(async () => {
     setIsRefreshing(true);
     try {
       if (refreshRunsRef.current) {
@@ -481,9 +245,13 @@ export const PanelInner = () => {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
-  // If multiple items are selected, show multi-selection properties
+  const handleClearNewlyCreatedNode = useCallback(() => {
+    setNewlyCreatedNodeId(null);
+  }, [setNewlyCreatedNodeId]);
+
+  // Render multi-selection panel
   if (hasMultipleSelections) {
     return (
       <MultiSelectionPanel
@@ -494,587 +262,64 @@ export const PanelInner = () => {
     );
   }
 
-  // If an edge is selected, show edge properties
+  // Render edge properties panel
   if (selectedEdge) {
     return (
-      <>
-        <div className="flex size-full flex-col">
-          <div className="flex h-14 w-full shrink-0 items-center border-b bg-transparent px-4">
-            <h2 className="font-semibold text-foreground">Propriedades</h2>
-          </div>
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            <div className="space-y-2">
-              <Label className="ml-1" htmlFor="edge-id">
-                ID da conexão
-              </Label>
-              <Input disabled id="edge-id" value={selectedEdge.id} />
-            </div>
-            <div className="space-y-2">
-              <Label className="ml-1" htmlFor="edge-source">
-                Origem
-              </Label>
-              <Input disabled id="edge-source" value={selectedEdge.source} />
-            </div>
-            <div className="space-y-2">
-              <Label className="ml-1" htmlFor="edge-target">
-                Destino
-              </Label>
-              <Input disabled id="edge-target" value={selectedEdge.target} />
-            </div>
-
-            {isOwner && (
-              <div className="flex items-center gap-2 pt-4">
-                <Button
-                  className="text-muted-foreground"
-                  onClick={() => setShowDeleteEdgeAlert(true)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <Trash2 className="mr-2 size-4" />
-                  Excluir
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <AlertDialog
-          onOpenChange={setShowDeleteEdgeAlert}
-          open={showDeleteEdgeAlert}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir conexão</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir esta conexão? Essa ação nao pode
-                ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteEdge}>
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </>
+      <EdgePropertiesPanel
+        isOwner={isOwner}
+        onDelete={handleDeleteEdge}
+        selectedEdge={selectedEdge}
+      />
     );
   }
 
-  // If no node is selected, show workspace properties and runs
+  // Render workspace properties panel (no node selected)
   if (!selectedNode) {
     return (
-      <>
-        <Tabs
-          className="size-full"
-          defaultValue="properties"
-          onValueChange={setActiveTab}
-          value={activeTab}
-        >
-          <TabsList className="h-14 w-full shrink-0 rounded-none border-b bg-transparent px-4 py-2.5">
-            <TabsTrigger
-              className="bg-transparent text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none"
-              value="properties"
-            >
-              Propriedades
-            </TabsTrigger>
-            <TabsTrigger
-              className="bg-transparent text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none"
-              value="code"
-            >
-              Codigo
-            </TabsTrigger>
-            {isOwner && (
-              <TabsTrigger
-                className="bg-transparent text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none"
-                value="runs"
-              >
-                Execucoes
-              </TabsTrigger>
-            )}
-          </TabsList>
-          <TabsContent
-            className="flex flex-col overflow-hidden"
-            value="properties"
-          >
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              <div className="space-y-2">
-                <Label className="ml-1" htmlFor="workflow-name">
-                  Nome do fluxo
-                </Label>
-                <Input
-                  disabled={!isOwner}
-                  id="workflow-name"
-                  onChange={(e) => handleUpdateWorkspaceName(e.target.value)}
-                  value={currentWorkflowName}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="ml-1" htmlFor="workflow-id">
-                  ID do fluxo
-                </Label>
-                <Input
-                  disabled
-                  id="workflow-id"
-                  value={currentWorkflowId || "Nao salvo"}
-                />
-              </div>
-              {!isOwner && (
-                <div className="rounded-lg border border-muted bg-muted/30 p-3">
-                  <p className="text-muted-foreground text-sm">
-                    Voce esta vendo um fluxo publico. Duplique para editar.
-                  </p>
-                </div>
-              )}
-              {isOwner && (
-                <div className="flex items-center gap-2 pt-4">
-                  <Button
-                    className="text-muted-foreground"
-                    onClick={() => setShowClearDialog(true)}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <Eraser className="mr-2 size-4" />
-                    Limpar
-                  </Button>
-                  <Button
-                    className="text-muted-foreground"
-                    onClick={() => setShowDeleteDialog(true)}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <Trash2 className="mr-2 size-4" />
-                    Excluir
-                  </Button>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          {isOwner && (
-            <TabsContent className="flex flex-col overflow-hidden" value="runs">
-              {/* Actions in content header */}
-              <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
-                <Button
-                  className="text-muted-foreground"
-                  disabled={isRefreshing}
-                  onClick={handleRefreshRuns}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <RefreshCw
-                    className={`mr-2 size-4 ${isRefreshing ? "animate-spin" : ""}`}
-                  />
-                  Atualizar
-                </Button>
-                <Button
-                  className="text-muted-foreground"
-                  onClick={() => setShowDeleteRunsAlert(true)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <Eraser className="mr-2 size-4" />
-                  Limpar tudo
-                </Button>
-              </div>
-              <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                <WorkflowRuns
-                  isActive={activeTab === "runs"}
-                  onRefreshRef={refreshRunsRef}
-                />
-              </div>
-            </TabsContent>
-          )}
-          <TabsContent
-            className="flex flex-col overflow-hidden data-[state=inactive]:hidden"
-            forceMount
-            value="code"
-          >
-            <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-3 pb-2">
-              <div className="flex items-center gap-2">
-                <FileCode className="size-3.5 text-muted-foreground" />
-                <code className="text-muted-foreground text-xs">
-                  builder/
-                  {currentWorkflowName
-                    .toLowerCase()
-                    .replace(/\s+/g, "-")
-                    .replace(/[^a-z0-9-]/g, "") || "workflow"}
-                  .ts
-                </code>
-              </div>
-              <Button
-                className="text-muted-foreground"
-                onClick={handleCopyWorkflowCode}
-                size="sm"
-                variant="ghost"
-              >
-                <Copy className="mr-2 size-4" />
-                Cópiar
-              </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <CodeEditor
-                height="100%"
-                language="typescript"
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  fontSize: 13,
-                  lineNumbers: "on",
-                  folding: true,
-                  wordWrap: "off",
-                  padding: { top: 16, bottom: 16 },
-                }}
-                value={workflowCode}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <AlertDialog
-          onOpenChange={setShowDeleteRunsAlert}
-          open={showDeleteRunsAlert}
-        >
-          <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Excluir todas as execucoes</AlertDialogTitle>
-          <AlertDialogDescription>
-            Tem certeza que deseja excluir todas as execucoes? Essa ação nao
-            pode ser desfeita.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteAllRuns}>
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </>
+      <WorkspacePropertiesPanel
+        activeTab={activeTab}
+        isOwner={isOwner}
+        isRefreshing={isRefreshing}
+        onClear={() => setShowClearDialog(true)}
+        onCopyWorkflowCode={handleCopyWorkflowCode}
+        onDelete={() => setShowDeleteDialog(true)}
+        onDeleteAllRuns={handleDeleteAllRuns}
+        onRefreshRuns={handleRefreshRuns}
+        onTabChange={setActiveTab}
+        onUpdateWorkflowName={handleUpdateWorkspaceName}
+        refreshRunsRef={refreshRunsRef}
+        workflowCode={workflowCode}
+        workflowId={currentWorkflowId}
+        workflowName={currentWorkflowName}
+      />
     );
   }
 
+  // Render node properties panel
   return (
-    <>
-      <Tabs
-        className="size-full"
-        data-testid="properties-panel"
-        defaultValue="properties"
-        onValueChange={setActiveTab}
-        value={activeTab}
-      >
-        <TabsList className="h-14 w-full shrink-0 rounded-none border-b bg-transparent px-4 py-2.5">
-          <TabsTrigger
-            className="bg-transparent text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none"
-            value="properties"
-          >
-            Propriedades
-          </TabsTrigger>
-          {(selectedNode.data.type !== "trigger" ||
-            (selectedNode.data.config?.triggerType as string) !== "Manual") &&
-          selectedNode.data.config?.actionType !== "Condition" ? (
-            <TabsTrigger
-              className="bg-transparent text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none"
-              value="code"
-            >
-              Codigo
-            </TabsTrigger>
-          ) : null}
-          {isOwner && (
-            <TabsTrigger
-              className="bg-transparent text-muted-foreground data-[state=active]:text-foreground data-[state=active]:shadow-none"
-              value="runs"
-            >
-              Execucoes
-            </TabsTrigger>
-          )}
-        </TabsList>
-        <TabsContent
-          className="flex flex-col overflow-hidden"
-          value="properties"
-        >
-          {/* Action selection - full height flex layout */}
-          {selectedNode.data.type === "action" &&
-            !selectedNode.data.config?.actionType &&
-            isOwner && (
-              <div className="flex min-h-0 flex-1 flex-col px-4 pt-4">
-                <ActionGrid
-                  disabled={isGenerating}
-                  isNewlyCreated={selectedNode?.id === newlyCreatedNodeId}
-                  onSelectAction={(actionType) => {
-                    handleUpdateConfig("actionType", actionType);
-                    // Clear newly created tracking once action is selected
-                    if (selectedNode?.id === newlyCreatedNodeId) {
-                      setNewlyCreatedNodeId(null);
-                    }
-                  }}
-                />
-              </div>
-            )}
-
-          {/* Other content - scrollable */}
-          {!(
-            selectedNode.data.type === "action" &&
-            !selectedNode.data.config?.actionType &&
-            isOwner
-          ) && (
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {selectedNode.data.type === "trigger" && (
-                <TriggerConfig
-                  config={selectedNode.data.config || {}}
-                  disabled={isGenerating || !isOwner}
-                  onUpdateConfig={handleUpdateConfig}
-                  workflowId={currentWorkflowId ?? undefined}
-                />
-              )}
-
-              {selectedNode.data.type === "action" &&
-                !selectedNode.data.config?.actionType &&
-                !isOwner && (
-                  <div className="rounded-lg border border-muted bg-muted/30 p-3">
-                    <p className="text-muted-foreground text-sm">
-                      Nenhuma ação configurada para esta etapa.
-                    </p>
-                  </div>
-                )}
-
-              {selectedNode.data.type === "action" &&
-              selectedNode.data.config?.actionType ? (
-                <ActionConfig
-                  config={selectedNode.data.config || {}}
-                  disabled={isGenerating || !isOwner}
-                  isOwner={isOwner}
-                  onUpdateConfig={handleUpdateConfig}
-                />
-              ) : null}
-
-              {selectedNode.data.type !== "action" ||
-              selectedNode.data.config?.actionType ? (
-                <>
-                  <div className="space-y-2">
-                    <Label className="ml-1" htmlFor="label">
-                      Rotulo
-                    </Label>
-                    <Input
-                      disabled={isGenerating || !isOwner}
-                      id="label"
-                      onChange={(e) => handleUpdateLabel(e.target.value)}
-                      value={selectedNode.data.label}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="ml-1" htmlFor="description">
-                      Descrição
-                    </Label>
-                    <Input
-                      disabled={isGenerating || !isOwner}
-                      id="description"
-                      onChange={(e) => handleUpdateDescription(e.target.value)}
-                      placeholder="Descrição opcional"
-                      value={selectedNode.data.description || ""}
-                    />
-                  </div>
-                </>
-              ) : null}
-
-              {!isOwner && (
-                <div className="rounded-lg border border-muted bg-muted/30 p-3">
-                  <p className="text-muted-foreground text-sm">
-                    Voce esta vendo um fluxo publico. Duplique para editar.
-                  </p>
-                </div>
-              )}
-
-              {/* Actions moved into content */}
-              {isOwner && (
-                <div className="flex items-center gap-2 pt-4">
-                  {selectedNode.data.type === "action" && (
-                    <Button
-                      className="text-muted-foreground"
-                      onClick={handleToggleEnabled}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      {selectedNode.data.enabled === false ? (
-                        <>
-                          <EyeOff className="mr-2 size-4" />
-                          Desativado
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="mr-2 size-4" />
-                          Ativo
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  <Button
-                    className="text-muted-foreground"
-                    onClick={() => setShowDeleteNodeAlert(true)}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    <Trash2 className="mr-2 size-4" />
-                    Excluir
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-        <TabsContent
-          className="flex flex-col overflow-hidden data-[state=inactive]:hidden"
-          forceMount
-          value="code"
-        >
-          {(() => {
-            const triggerType = selectedNode.data.config?.triggerType as string;
-            let filename = "";
-            let language = "typescript";
-
-            if (selectedNode.data.type === "trigger") {
-              if (triggerType === "Schedule") {
-                filename = "vercel.json";
-                language = "json";
-              } else if (triggerType === "Webhook") {
-                const webhookPath =
-                  (selectedNode.data.config?.webhookPath as string) ||
-                  "/webhook";
-                filename = `app/api${webhookPath}/route.ts`;
-                language = "typescript";
-              }
-            } else {
-              filename = `steps/${
-                (selectedNode.data.config?.actionType as string)
-                  ?.toLowerCase()
-                  .replace(/\s+/g, "-")
-                  .replace(/[^a-z0-9-]/g, "") || "action"
-              }-step.ts`;
-            }
-
-            return (
-              <>
-                {filename && (
-                  <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-3 pb-2">
-                    <div className="flex items-center gap-2">
-                      <FileCode className="size-3.5 text-muted-foreground" />
-                      <code className="text-muted-foreground text-xs">
-                        {filename}
-                      </code>
-                    </div>
-                    <Button
-                      className="text-muted-foreground"
-                      onClick={handleCopyCode}
-                      size="sm"
-                      variant="ghost"
-                    >
-                      <Copy className="mr-2 size-4" />
-                      Cópiar
-                    </Button>
-                  </div>
-                )}
-                <div className="flex-1 overflow-hidden">
-                  <CodeEditor
-                    height="100%"
-                    language={language}
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      fontSize: 13,
-                      lineNumbers: "on",
-                      folding: false,
-                      wordWrap: "off",
-                      padding: { top: 16, bottom: 16 },
-                    }}
-                    value={generateNodeCode(selectedNode)}
-                  />
-                </div>
-              </>
-            );
-          })()}
-        </TabsContent>
-        {isOwner && (
-          <TabsContent className="flex flex-col overflow-hidden" value="runs">
-            {/* Actions in content header */}
-            <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
-              <Button
-                className="text-muted-foreground"
-                disabled={isRefreshing}
-                onClick={handleRefreshRuns}
-                size="sm"
-                variant="ghost"
-              >
-                <RefreshCw
-                  className={`mr-2 size-4 ${isRefreshing ? "animate-spin" : ""}`}
-                />
-                Atualizar
-              </Button>
-              <Button
-                className="text-muted-foreground"
-                onClick={() => setShowDeleteRunsAlert(true)}
-                size="sm"
-                variant="ghost"
-              >
-                <Eraser className="mr-2 size-4" />
-                Limpar tudo
-              </Button>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              <WorkflowRuns
-                isActive={activeTab === "runs"}
-                onRefreshRef={refreshRunsRef}
-              />
-            </div>
-          </TabsContent>
-        )}
-      </Tabs>
-
-      <AlertDialog
-        onOpenChange={setShowDeleteRunsAlert}
-        open={showDeleteRunsAlert}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir todas as execucoes</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir todas as execucoes? Essa ação nao
-              pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAllRuns}>
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        onOpenChange={setShowDeleteNodeAlert}
-        open={showDeleteNodeAlert}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir etapa</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir esta etapa? Essa ação nao pode ser
-              desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Excluir</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    <NodePropertiesPanel
+      activeTab={activeTab}
+      isGenerating={isGenerating}
+      isOwner={isOwner}
+      isRefreshing={isRefreshing}
+      newlyCreatedNodeId={newlyCreatedNodeId}
+      onClearNewlyCreatedNode={handleClearNewlyCreatedNode}
+      onCopyCode={handleCopyCode}
+      onDelete={handleDeleteNode}
+      onDeleteAllRuns={handleDeleteAllRuns}
+      onRefreshRuns={handleRefreshRuns}
+      onTabChange={setActiveTab}
+      onToggleEnabled={handleToggleEnabled}
+      onUpdateConfig={handleUpdateConfig}
+      onUpdateDescription={handleUpdateDescription}
+      onUpdateLabel={handleUpdateLabel}
+      refreshRunsRef={refreshRunsRef}
+      selectedNode={selectedNode}
+      workflowId={currentWorkflowId}
+    />
   );
 };
+
 export const NodeConfigPanel = () => (
   <div className="hidden size-full flex-col bg-background md:flex">
     <PanelInner />

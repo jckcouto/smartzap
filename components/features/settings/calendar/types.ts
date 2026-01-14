@@ -30,7 +30,6 @@ export interface WizardStepCredentialsProps extends WizardStepProps {
   calendarBaseUrlDraft: string;
   calendarBaseUrlEditing: boolean;
   calendarRedirectUrl: string;
-  calendarWebhookUrl: string;
 
   // Validation
   calendarClientIdValid: boolean;
@@ -46,7 +45,6 @@ export interface WizardStepCredentialsProps extends WizardStepProps {
   handleSaveCalendarCreds: () => Promise<void>;
   handleRemoveCalendarCreds: () => Promise<void>;
   handleCopyCalendarValue: (value: string, label: string) => Promise<void>;
-  handleCopyCalendarBundle: () => Promise<void>;
 }
 
 /**
@@ -122,7 +120,6 @@ export interface CalendarWizardModalProps {
   calendarBaseUrlDraft: string;
   calendarBaseUrlEditing: boolean;
   calendarRedirectUrl: string;
-  calendarWebhookUrl: string;
   calendarClientIdValid: boolean;
   calendarClientSecretValid: boolean;
   calendarCredsFormValid: boolean;
@@ -134,7 +131,6 @@ export interface CalendarWizardModalProps {
   handleSaveCalendarCreds: () => Promise<void>;
   handleRemoveCalendarCreds: () => Promise<void>;
   handleCopyCalendarValue: (value: string, label: string) => Promise<void>;
-  handleCopyCalendarBundle: () => Promise<void>;
 
   // Step 2 props
   calendarConnectLoading: boolean;

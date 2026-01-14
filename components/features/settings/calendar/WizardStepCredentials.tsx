@@ -14,7 +14,6 @@ export function WizardStepCredentials({
   calendarBaseUrlDraft,
   calendarBaseUrlEditing,
   calendarRedirectUrl,
-  calendarWebhookUrl,
   calendarClientIdValid,
   calendarClientSecretValid,
   calendarCredsFormValid,
@@ -26,7 +25,6 @@ export function WizardStepCredentials({
   handleSaveCalendarCreds,
   handleRemoveCalendarCreds,
   handleCopyCalendarValue,
-  handleCopyCalendarBundle,
 }: WizardStepCredentialsProps) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -109,7 +107,7 @@ export function WizardStepCredentials({
             <div className="mt-2 space-y-1">
               <div>1. Ative a Google Calendar API.</div>
               <div>2. Crie credenciais OAuth (aplicacao web).</div>
-              <div>3. Cole o Redirect URI e o Webhook URL.</div>
+              <div>3. Cole o Redirect URI abaixo.</div>
             </div>
           </div>
 
@@ -144,37 +142,16 @@ export function WizardStepCredentials({
 
           <div className="mt-4 rounded-lg border border-white/10 bg-zinc-950/40 px-3 py-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-400">
-              <span>Copie e cole no Google Cloud</span>
-              <button
-                type="button"
-                onClick={handleCopyCalendarBundle}
-                className="text-emerald-200 hover:text-emerald-100"
-              >
-                Copiar tudo
-              </button>
-            </div>
-            <div className="mt-2 text-[11px] text-gray-400">Redirect URI</div>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <div className="text-xs text-white font-mono break-all">{calendarRedirectUrl}</div>
+              <span>Cole em "URIs de redirecionamento autorizados" no Google Cloud</span>
               <button
                 type="button"
                 onClick={() => handleCopyCalendarValue(calendarRedirectUrl, 'Redirect URI')}
-                className="h-7 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white hover:bg-white/10 transition-colors"
+                className="text-emerald-200 hover:text-emerald-100"
               >
                 Copiar
               </button>
             </div>
-            <div className="mt-3 text-[11px] text-gray-400">Webhook URL</div>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <div className="text-xs text-white font-mono break-all">{calendarWebhookUrl}</div>
-              <button
-                type="button"
-                onClick={() => handleCopyCalendarValue(calendarWebhookUrl, 'Webhook URL')}
-                className="h-7 px-2 rounded-md border border-white/10 bg-white/5 text-[11px] text-white hover:bg-white/10 transition-colors"
-              >
-                Copiar
-              </button>
-            </div>
+            <div className="mt-2 text-xs text-white font-mono break-all">{calendarRedirectUrl}</div>
           </div>
 
           <div className="mt-4 flex justify-end gap-2">

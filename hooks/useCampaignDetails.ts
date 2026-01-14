@@ -37,16 +37,39 @@ export const useCampaignDetailsController = () => {
   const lastMessagesRef = useRef<ServiceMessagesResponse | undefined>(undefined)
   const loadMoreTokenRef = useRef(0)
 
-  // Fetch campaign data (com polling opcional calculado abaixo)
+  // Warmup polling: nos primeiros 30s, fazemos polling rápido para capturar
+  // a transição DRAFT → SENDING (quando Realtime ainda não está conectado)
+  const mountedAtRef = useRef(Date.now())
+  const [warmupTick, setWarmupTick] = useState(0)
+  const WARMUP_DURATION_MS = 30_000 // 30 segundos
+  const WARMUP_INTERVAL_MS = 3_000 // polling a cada 3s durante warmup
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - mountedAtRef.current
+      if (elapsed < WARMUP_DURATION_MS) {
+        setWarmupTick((t) => t + 1) // força re-render para recalcular isInWarmupPeriod
+      } else {
+        clearInterval(interval)
+      }
+    }, WARMUP_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [])
+
+  const isInWarmupPeriod = useMemo(() => {
+    void warmupTick // dependency para forçar recálculo
+    return Date.now() - mountedAtRef.current < WARMUP_DURATION_MS
+  }, [warmupTick])
+
+  // Fetch campaign data (com warmup polling para capturar transição DRAFT → SENDING)
   const campaignQuery = useQuery<Campaign | undefined>({
     queryKey: ['campaign', id],
     queryFn: () => campaignService.getById(id!),
     enabled: !!id && !id.startsWith('temp_'),
     staleTime: 5000,
-    // Importante: não usamos pollingInterval aqui porque ele depende de
-    // isRealtimeConnected/campaign (que por sua vez dependem desta query).
-    // Mantemos o refresh via Broadcast + polling nas queries de messages/metrics.
-    refetchInterval: false,
+    // Warmup polling: nos primeiros 30s, fazemos polling a cada 3s para capturar
+    // a transição DRAFT → SENDING. Depois disso, Realtime + backup polling assumem.
+    refetchInterval: isInWarmupPeriod ? WARMUP_INTERVAL_MS : false,
     select: (fresh) => {
       const merged = mergeCampaignCountersMonotonic(lastCampaignRef.current, fresh)
       lastCampaignRef.current = merged

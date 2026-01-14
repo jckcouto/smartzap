@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
 import {
@@ -137,6 +137,8 @@ const fetchJson = async <T,>(url: string): Promise<T> => {
 
 export default function CampaignsNewRealPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const preselectedTemplateName = searchParams?.get('templateName') || null
   const [step, setStep] = useState(1)
   const [audienceMode, setAudienceMode] = useState('todos')
   const [combineMode, setCombineMode] = useState('or')
@@ -386,6 +388,21 @@ export default function CampaignsNewRealPage() {
       setTemplateSelected(false)
     }
   }, [selectedTemplate, templateOptions])
+
+  // Pré-selecionar template da URL (ex: vindo de /templates com ?templateName=...)
+  useEffect(() => {
+    if (!preselectedTemplateName) return
+    if (templateOptions.length === 0) return
+    if (selectedTemplate) return // Já tem um selecionado, não sobrescrever
+
+    const match = templateOptions.find(
+      (t) => t.name.toLowerCase() === preselectedTemplateName.toLowerCase()
+    )
+    if (match) {
+      setSelectedTemplate(match)
+      setTemplateSelected(true)
+    }
+  }, [preselectedTemplateName, templateOptions, selectedTemplate])
 
   useEffect(() => {
     const phone = testContactQuery.data?.phone

@@ -108,14 +108,22 @@ function parseTimeToMinutes(value: string): number {
  * IMPORTANTE: Usa UTC Date para evitar problemas de timezone do servidor.
  * O servidor Vercel roda em UTC, então criamos datas em UTC e formatamos
  * usando o timezone do cliente.
+ * 
+ * Respeita:
+ * - minAdvanceHours: pula o dia de hoje se não houver slots disponíveis
+ * - maxAdvanceDays: limita quantos dias no futuro mostrar
  */
 async function getAvailableDates(daysToShow: number = 14): Promise<Array<{ id: string; title: string }>> {
   const config = await getCalendarBookingConfig()
   const timeZone = config.timezone
+  const maxAdvanceDays = config.maxAdvanceDays ?? 14
   
   // Pega a data atual no timezone correto (ex: America/Sao_Paulo)
   const todayStr = formatInTimeZone(new Date(), timeZone, 'yyyy-MM-dd')
   const [year, month, day] = todayStr.split('-').map(Number)
+  
+  // Limita o número de dias a mostrar baseado em maxAdvanceDays
+  const effectiveDaysToShow = maxAdvanceDays > 0 ? Math.min(daysToShow, maxAdvanceDays) : daysToShow
   
   // Debug: log config
   const enabledDays = config.workingHours.filter(d => d.enabled).map(d => d.day)
@@ -123,16 +131,17 @@ async function getAvailableDates(daysToShow: number = 14): Promise<Array<{ id: s
     timezone: timeZone, 
     enabledDays,
     todayStr,
-    serverTime: new Date().toISOString(),
+    maxAdvanceDays,
+    effectiveDaysToShow,
   })
 
   const dates: Array<{ id: string; title: string }> = []
   
   // Trabalha com offset de dias a partir de hoje
   let dayOffset = 0
-  const maxAttempts = 60
+  const maxAttempts = Math.max(60, maxAdvanceDays * 2)
 
-  while (dates.length < daysToShow && dayOffset < maxAttempts) {
+  while (dates.length < effectiveDaysToShow && dayOffset < maxAttempts && dayOffset <= maxAdvanceDays) {
     // Cria data em UTC para evitar problemas de timezone
     const utcDate = new Date(Date.UTC(year, month - 1, day + dayOffset, 12, 0, 0))
     const dateStr = utcDate.toISOString().split('T')[0]
@@ -146,17 +155,6 @@ async function getAvailableDates(daysToShow: number = 14): Promise<Array<{ id: s
     const workingDay = config.workingHours.find((d) => d.day === dayKey)
     const isWorking = workingDay?.enabled ?? false
     
-    // Debug first 7 days
-    if (dayOffset < 7) {
-      console.log('[getAvailableDates] Day check:', {
-        date: dateStr,
-        jsDay,
-        isoDay,
-        dayKey,
-        isWorking,
-      })
-    }
-    
     if (isWorking) {
       // Formata o display usando formatInTimeZone para garantir consistência
       const displayStr = formatInTimeZone(utcDate, timeZone, "EEEE, d 'de' MMM", { locale: ptBR })
@@ -169,12 +167,17 @@ async function getAvailableDates(daysToShow: number = 14): Promise<Array<{ id: s
     dayOffset++
   }
 
-  console.log('[getAvailableDates] Result:', dates.length, 'dates, first:', dates[0]?.id)
+  console.log('[getAvailableDates] Result:', dates.length, 'dates')
   return dates
 }
 
 /**
  * Busca slots disponiveis para uma data especifica
+ * 
+ * Respeita:
+ * - minAdvanceHours: não mostra slots que estão dentro do período mínimo de antecedência
+ * - Eventos ocupados no Google Calendar
+ * - Buffer entre slots
  */
 async function getAvailableSlots(
   dateStr: string
@@ -190,11 +193,15 @@ async function getAvailableSlots(
   const timeZone = config.timezone
   const slotDuration = config.slotDurationMinutes
   const bufferMinutes = config.slotBufferMinutes
+  const minAdvanceHours = config.minAdvanceHours ?? 0
 
   // Limites do dia
   const dayStart = fromZonedTime(`${dateStr}T00:00:00`, timeZone)
   const dayEnd = fromZonedTime(`${dateStr}T23:59:59`, timeZone)
   const now = new Date()
+  
+  // Calcula o horário mínimo permitido (agora + minAdvanceHours)
+  const minAllowedTime = new Date(now.getTime() + minAdvanceHours * 60 * 60 * 1000)
 
   // Busca ocupacoes do calendario
   const busyItems = await listBusyTimes({
@@ -233,8 +240,8 @@ async function getAvailableSlots(
     const slotStart = fromZonedTime(`${dateStr}T${timeStr}:00`, timeZone)
     const slotEnd = new Date(slotStart.getTime() + slotDuration * 60 * 1000)
 
-    // Verifica se slot esta no passado
-    if (slotStart.getTime() <= now.getTime()) {
+    // Verifica se slot está no passado ou dentro do período mínimo de antecedência
+    if (slotStart.getTime() <= minAllowedTime.getTime()) {
       currentMinutes += slotDuration
       continue
     }

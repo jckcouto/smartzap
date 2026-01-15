@@ -223,11 +223,17 @@ export interface AppSettings {
 
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
+export interface TimeSlot {
+  start: string; // HH:mm
+  end: string;   // HH:mm
+}
+
 export interface WorkingHoursDay {
   day: Weekday;
   enabled: boolean;
-  start: string;
-  end: string;
+  start: string;  // Mantido para compatibilidade
+  end: string;    // Mantido para compatibilidade
+  slots?: TimeSlot[]; // Múltiplos períodos por dia (opcional)
 }
 
 export interface CalendarBookingConfig {
@@ -235,6 +241,10 @@ export interface CalendarBookingConfig {
   slotDurationMinutes: number;
   slotBufferMinutes: number;
   workingHours: WorkingHoursDay[];
+  // Novas opções
+  minAdvanceHours?: number;      // Tempo mínimo de antecedência (horas)
+  maxAdvanceDays?: number;       // Distância máxima permitida (dias)
+  allowSimultaneous?: boolean;   // Permitir agendamentos simultâneos
 }
 
 export interface WorkflowExecutionConfig {

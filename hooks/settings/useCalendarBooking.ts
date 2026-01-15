@@ -17,7 +17,29 @@ export const CALENDAR_BOOKING_FALLBACK: CalendarBookingConfig = {
     { day: 'sat', enabled: false, start: '09:00', end: '13:00' },
     { day: 'sun', enabled: false, start: '09:00', end: '13:00' },
   ],
+  minAdvanceHours: 4,      // 4 horas de antecedência mínima
+  maxAdvanceDays: 14,      // Até 2 semanas no futuro
+  allowSimultaneous: false, // Não permitir agendamentos simultâneos
 };
+
+export const MIN_ADVANCE_OPTIONS = [
+  { value: 0, label: 'Não limitar' },
+  { value: 1, label: '1 hora' },
+  { value: 2, label: '2 horas' },
+  { value: 3, label: '3 horas' },
+  { value: 4, label: '4 horas' },
+  { value: 12, label: '12 horas' },
+  { value: 24, label: '24 horas' },
+];
+
+export const MAX_ADVANCE_OPTIONS = [
+  { value: 0, label: 'Não limitar' },
+  { value: 1, label: 'Apenas hoje' },
+  { value: 2, label: 'Entre hoje e amanhã' },
+  { value: 7, label: 'Até uma semana' },
+  { value: 14, label: 'Até duas semanas' },
+  { value: 30, label: 'Até um mês' },
+];
 
 export const CALENDAR_WEEK_LABELS: Record<string, string> = {
   mon: 'Seg',

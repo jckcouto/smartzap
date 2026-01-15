@@ -291,19 +291,54 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
       // Criar na Meta (com publish opcional em um único request)
       const baseName = String(row?.name || 'Flow').trim() || 'Flow'
-      const suffix = ` #${String(id).slice(0, 6)}`
       const maxNameLength = 60
-      const maxBaseLength = Math.max(1, maxNameLength - suffix.length)
-      const uniqueName = `${baseName.slice(0, maxBaseLength)}${suffix}`
-      const created = await metaCreateFlow({
-        accessToken: credentials.accessToken,
-        wabaId: credentials.businessAccountId,
-        name: uniqueName,
-        categories: input.categories.length > 0 ? input.categories : ['OTHER'],
-        flowJson,
-        publish: !!input.publish,
-        endpointUri,
-      })
+      const buildUniqueName = (nameSuffix: string) => {
+        const maxBaseLength = Math.max(1, maxNameLength - nameSuffix.length)
+        return `${baseName.slice(0, maxBaseLength)}${nameSuffix}`
+      }
+      const primarySuffix = ` #${String(id).slice(0, 6)}`
+      const uniqueName = buildUniqueName(primarySuffix)
+      debugInfo.createName = uniqueName
+
+      let created
+      try {
+        created = await metaCreateFlow({
+          accessToken: credentials.accessToken,
+          wabaId: credentials.businessAccountId,
+          name: uniqueName,
+          categories: input.categories.length > 0 ? input.categories : ['OTHER'],
+          flowJson,
+          publish: !!input.publish,
+          endpointUri,
+        })
+      } catch (error) {
+        if (error instanceof MetaGraphApiError) {
+          const graphError = (error.data as any)?.error ?? error.data
+          const code = graphError?.code
+          const subcode = graphError?.error_subcode
+          if (code === 100 && subcode === 4016019) {
+            const retrySuffix = ` #${String(id).slice(0, 6)}-${Date.now().toString().slice(-4)}`
+            const retryName = buildUniqueName(retrySuffix)
+            debugInfo.createNameRetry = retryName
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'ultra-logging',hypothesisId:'H6',location:'app/api/flows/[id]/meta/publish/route.ts:312',message:'retry create flow with unique name',data:{flowId:id,retryName},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion agent log
+            created = await metaCreateFlow({
+              accessToken: credentials.accessToken,
+              wabaId: credentials.businessAccountId,
+              name: retryName,
+              categories: input.categories.length > 0 ? input.categories : ['OTHER'],
+              flowJson,
+              publish: !!input.publish,
+              endpointUri,
+            })
+          } else {
+            throw error
+          }
+        } else {
+          throw error
+        }
+      }
 
       metaFlowId = created.id
       validationErrors = created.validation_errors ?? null

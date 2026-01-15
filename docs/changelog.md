@@ -59,6 +59,9 @@
 - **✅ Endpoint reconhece notificações de erro**
   - `lib/whatsapp/flow-endpoint-handlers.ts` responde `{ data: { acknowledged: true } }` quando recebe `data.error` do client
 
+- **🏷️ Retry automático em nome não único**
+  - `app/api/flows/[id]/meta/publish/route.ts` tenta um nome alternativo quando a Meta retorna erro 4016019
+
 ## 25/12/2025 - Debug (Run/Trace para campanhas)
 
 - **🔎 Timeline estruturada por `trace_id` (sem caçar logs)**

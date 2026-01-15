@@ -98,6 +98,7 @@ function extractFlowJson(row: any): unknown {
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   let wantsDebug = false
+  const debugInfo: Record<string, unknown> = {}
 
   try {
     const input = PublishSchema.parse(await req.json().catch(() => ({})))
@@ -135,6 +136,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!row) return NextResponse.json({ error: 'Flow não encontrado' }, { status: 404 })
 
     let flowJson = extractFlowJson(row)
+    const flowJsonObj = flowJson && typeof flowJson === 'object' ? (flowJson as Record<string, unknown>) : null
+    debugInfo.flowJsonVersion = (flowJsonObj as any)?.version ?? null
+    debugInfo.flowJsonDataApiVersion = (flowJsonObj as any)?.data_api_version ?? null
     // #region agent log
     fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'ultra-logging',hypothesisId:'H2',location:'app/api/flows/[id]/meta/publish/route.ts:136',message:'publish flow snapshot',data:{flowId:id,hasSpecForm:Boolean(row?.spec?.form),hasSavedFlowJson:Boolean(row?.flow_json),metaFlowId:row?.meta_flow_id ?? null,flowJsonVersion:(flowJson as any)?.version ?? null,flowJsonDataApiVersion:(flowJson as any)?.data_api_version ?? null},timestamp:Date.now()})}).catch(()=>{});
     // #endregion agent log
@@ -213,9 +217,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // Verifica se e um flow dinamico e precisa de endpoint
       const dynamic = isDynamicFlow(flowJson)
       let endpointUri: string | undefined
+      debugInfo.dynamic = dynamic
 
       if (dynamic) {
         const url = await getFlowEndpointUrl()
+        debugInfo.endpointUrl = url ?? null
         // #region agent log
         fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'ultra-logging',hypothesisId:'H3',location:'app/api/flows/[id]/meta/publish/route.ts:214',message:'dynamic endpoint resolved',data:{flowId:id,hasEndpointUrl:Boolean(url),endpointHost:url ? (()=>{try{return new URL(url).host}catch{return null}})() : null},timestamp:Date.now()})}).catch(()=>{});
         // #endregion agent log
@@ -246,16 +252,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           return NextResponse.json(
             {
               error: 'Chave pública do Flow não configurada. Gere as chaves em Configurações > MiniApp Dinâmico.',
+              debug: wantsDebug ? debugInfo : undefined,
             },
             { status: 400 }
           )
         }
+        debugInfo.publicKeyConfigured = true
 
         const existingKey = await metaGetEncryptionPublicKey({
           accessToken: credentials.accessToken,
           phoneNumberId: credentials.phoneNumberId,
         })
         const needsRegistration = !existingKey.publicKey || existingKey.publicKey.trim() !== publicKey.trim()
+        debugInfo.publicKeyMatchesMeta = !needsRegistration
         // #region agent log
         fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H9',location:'app/api/flows/[id]/meta/publish/route.ts:214',message:'flow public key registration check',data:{flowId:id,hasExistingKey:Boolean(existingKey.publicKey),needsRegistration},timestamp:Date.now()})}).catch(()=>{});
         // #endregion agent log
@@ -271,7 +280,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         }
       }
 
-      const flowJsonObj = flowJson && typeof flowJson === 'object' ? (flowJson as Record<string, unknown>) : null
       const screens = Array.isArray((flowJsonObj as any)?.screens) ? (flowJsonObj as any).screens : []
       const screenIds = screens.map((s: any) => String(s?.id || '')).filter(Boolean).slice(0, 6)
       // #region agent log
@@ -406,6 +414,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             ? {
                 status: error.status,
                 graphError: (error.data as any)?.error ?? error.data,
+                publish: debugInfo,
               }
             : undefined,
         },
@@ -425,6 +434,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             debug: {
               status: error.status,
               graphError: (error.data as any)?.error ?? error.data,
+              publish: debugInfo,
             },
           },
           { status: 400 }

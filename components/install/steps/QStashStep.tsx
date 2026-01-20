@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { StepCard } from '../StepCard';
 import { ServiceIcon } from '../ServiceIcon';
@@ -18,6 +18,8 @@ interface QStashStepProps {
  * Campos:
  * - QStash Token: formato JWT ou prefixo qstash_
  * - Current Signing Key: prefixo sig_ (para verificar callbacks)
+ *
+ * Auto-submit quando ambos os campos estão válidos.
  */
 export function QStashStep({ onComplete }: QStashStepProps) {
   const [token, setToken] = useState('');
@@ -25,6 +27,9 @@ export function QStashStep({ onComplete }: QStashStepProps) {
   const [validating, setValidating] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ref para evitar validação dupla
+  const hasTriggeredRef = useRef(false);
 
   // Valida formato do QStash token
   const isValidToken = (t: string): boolean => {
@@ -46,6 +51,8 @@ export function QStashStep({ onComplete }: QStashStepProps) {
     isValidSigningKey(signingKey);
 
   const handleValidate = async () => {
+    if (validating || success) return;
+
     if (!isValidToken(token)) {
       setError('Token QStash inválido (deve ser JWT ou começar com qstash_)');
       return;
@@ -60,7 +67,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
     setError(null);
 
     try {
-      // Valida token via API (opcional - pode ser removido se quiser validar só no wizard)
+      // Valida token via API
       const res = await fetch('/api/installer/qstash/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,16 +85,26 @@ export function QStashStep({ onComplete }: QStashStepProps) {
 
       setSuccess(true);
     } catch (err) {
-      // Se API não existir ainda, valida só o formato
-      if (err instanceof TypeError && err.message.includes('fetch')) {
+      // Se API retornar 404, valida só o formato e prossegue
+      if (err instanceof Error && err.message.includes('404')) {
         setSuccess(true);
       } else {
         setError(err instanceof Error ? err.message : 'Erro ao validar');
+        hasTriggeredRef.current = false; // Permite tentar novamente
       }
     } finally {
       setValidating(false);
     }
   };
+
+  // Auto-submit quando ambos os campos estão válidos
+  useEffect(() => {
+    if (canSubmit && !validating && !success && !error && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      const timer = setTimeout(handleValidate, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [canSubmit, validating, success, error]);
 
   const handleSuccessComplete = () => {
     onComplete({
@@ -136,6 +153,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
             onChange={(v) => {
               setToken(v);
               setError(null);
+              hasTriggeredRef.current = false; // Reset para permitir nova tentativa
             }}
             placeholder="eyJVc2VySUQi... ou qstash_..."
             minLength={30}
@@ -152,11 +170,10 @@ export function QStashStep({ onComplete }: QStashStepProps) {
             onChange={(v) => {
               setSigningKey(v);
               setError(null);
+              hasTriggeredRef.current = false; // Reset para permitir nova tentativa
             }}
             placeholder="sig_xxxxxxxxxxxxxxxx"
             minLength={30}
-            autoSubmitLength={canSubmit ? signingKey.length : undefined}
-            onAutoSubmit={canSubmit ? handleValidate : undefined}
             accentColor="orange"
             showCharCount={false}
           />

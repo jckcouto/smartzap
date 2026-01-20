@@ -157,7 +157,7 @@ export async function POST(req: Request) {
 
     // Create model
     const google = createGoogleGenerativeAI({ apiKey })
-    const modelId = agent.model || 'gemini-2.0-flash'
+    const modelId = agent.model || 'gemini-2.5-flash'
     const model = google(modelId)
 
     // Capture structured response

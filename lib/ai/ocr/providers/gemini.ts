@@ -5,10 +5,10 @@
  * O modelo é configurável via setting `ocr_gemini_model`.
  *
  * Modelos disponíveis (preço por 1M tokens input):
- * - gemini-2.0-flash-lite: $0.02 - OCR básico, mais barato
- * - gemini-2.0-flash: $0.10 - Bom custo/benefício (default)
- * - gemini-2.5-flash: $0.15 - Melhor qualidade
- * - gemini-2.5-pro: $1.25 - Máxima qualidade (tabelas complexas)
+ * - gemini-2.5-flash-lite: $0.02 - OCR básico, mais barato
+ * - gemini-2.5-flash: $0.10 - Bom custo/benefício (default)
+ * - gemini-2.5-pro: $1.25 - Melhor qualidade
+ * - gemini-3-flash-preview: Última geração (preview)
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
@@ -16,7 +16,7 @@ import { generateText } from 'ai'
 import type { OCRProvider, OCRProcessParams, OCRResult } from '../types'
 
 /** Modelo padrão para OCR - bom custo/benefício */
-export const DEFAULT_OCR_MODEL = 'gemini-2.0-flash'
+export const DEFAULT_OCR_MODEL = 'gemini-2.5-flash'
 
 /** Prompt otimizado para extração de texto */
 const OCR_PROMPT = `Extract ALL text content from this document/image.

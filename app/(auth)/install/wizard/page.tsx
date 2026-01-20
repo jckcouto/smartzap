@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 
 // Storage keys (must match /install/start/page.tsx)
 const STORAGE_KEYS = {
+  USER_NAME: 'smartzap_install_name',
   USER_EMAIL: 'smartzap_install_email',
   USER_PASS_HASH: 'smartzap_install_pass_hash',
   USER_PASS_PLAIN: 'smartzap_install_pass',
@@ -33,6 +34,7 @@ type WizardPhase =
   | 'error';
 
 interface CollectedData {
+  name: string;
   email: string;
   passwordHash: string;
   vercelToken: string;
@@ -86,11 +88,12 @@ export default function InstallWizardPage() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // First name for personalization
+  // First name for personalization (usa o nome real, não extrai do email)
   const firstName = useMemo(() => {
-    if (!data?.email) return 'você';
-    return data.email.split('@')[0] || 'você';
-  }, [data?.email]);
+    if (!data?.name) return 'você';
+    // Pega apenas o primeiro nome
+    return data.name.split(' ')[0] || 'você';
+  }, [data?.name]);
 
   // Hydration: check if all data is present
   useEffect(() => {
@@ -103,6 +106,7 @@ export default function InstallWizardPage() {
     const qstashToken = localStorage.getItem(STORAGE_KEYS.QSTASH_TOKEN);
     const redisUrl = localStorage.getItem(STORAGE_KEYS.REDIS_REST_URL);
     const redisToken = localStorage.getItem(STORAGE_KEYS.REDIS_REST_TOKEN);
+    const name = localStorage.getItem(STORAGE_KEYS.USER_NAME);
     const email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
     const passwordHash = localStorage.getItem(STORAGE_KEYS.USER_PASS_HASH);
 
@@ -116,6 +120,7 @@ export default function InstallWizardPage() {
       !qstashToken ||
       !redisUrl ||
       !redisToken ||
+      !name ||
       !email ||
       !passwordHash
     ) {
@@ -130,6 +135,7 @@ export default function InstallWizardPage() {
     }
 
     setData({
+      name: name || '',
       email: email || 'admin@smartzap.local',
       passwordHash: passwordHash || '',
       vercelToken,
@@ -289,6 +295,7 @@ export default function InstallWizardPage() {
           redisRestToken: data.redisRestToken,
         },
         admin: {
+          name: data.name,
           email: data.email,
           passwordHash: data.passwordHash,
         },
@@ -323,6 +330,7 @@ export default function InstallWizardPage() {
     // (igual ao CRM - só limpa quando o usuário clica no botão)
     localStorage.removeItem(STORAGE_KEYS.SUPABASE_PAT);
     localStorage.removeItem(STORAGE_KEYS.VERCEL_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_NAME);
     localStorage.removeItem(STORAGE_KEYS.USER_PASS_HASH);
     sessionStorage.removeItem(STORAGE_KEYS.USER_PASS_PLAIN);
     localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);

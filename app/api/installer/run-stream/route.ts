@@ -41,6 +41,7 @@ const RunSchema = z
       redisRestToken: z.string().min(1),
     }),
     admin: z.object({
+      name: z.string().min(1),
       email: z.string().email(),
       passwordHash: z.string().min(1),
     }),
@@ -215,8 +216,8 @@ export async function POST(req: Request) {
   if (healthCheck?.skipMigrations) skippedSteps.push('migrations');
   if (healthCheck?.skipBootstrap) skippedSteps.push('bootstrap');
 
-  // Extract first name for personalization
-  const firstName = admin.email.split('@')[0] || 'você';
+  // Extract first name for personalization (usa nome real, não extrai do email)
+  const firstName = admin.name.split(' ')[0] || 'você';
   const PHASES = createCinemaPhases(firstName);
 
   // Create progress calculator
@@ -344,6 +345,9 @@ export async function POST(req: Request) {
 
         // Auth
         { key: 'MASTER_PASSWORD', value: admin.passwordHash, targets: envTargets },
+
+        // Setup flag (para isSetupComplete() retornar true em produção)
+        { key: 'SETUP_COMPLETE', value: 'true', targets: envTargets },
       ];
 
       await upsertProjectEnvs(
@@ -441,6 +445,7 @@ export async function POST(req: Request) {
               supabaseUrl: supabase.url,
               serviceRoleKey: resolvedServiceRoleKey,
               adminEmail: admin.email,
+              adminName: admin.name,
             });
 
             if (!bootstrap.ok) throw new Error(bootstrap.error || 'Falha ao configurar instância.');

@@ -37,10 +37,10 @@ import { findActionById, getIntegration } from "@/lib/builder/plugins";
 const getModelDisplayName = (modelId: string): string => {
   const modelNames: Record<string, string> = {
     "gpt-5": "GPT-5",
-    "openai/gpt-5.1-instant": "GPT-5.1 Instant",
-    "openai/gpt-5.1-codex": "GPT-5.1 Codex",
-    "openai/gpt-5.1-codex-mini": "GPT-5.1 Codex Mini",
-    "openai/gpt-5.1-thinking": "GPT-5.1 Thinking",
+    "openai/gpt-5.2-pro": "GPT-5.2 Pro",
+    "openai/gpt-5.2-chat-latest": "GPT-5.2 Chat Latest",
+    "openai/gpt-5-mini": "GPT-5 Mini",
+    "openai/gpt-5-nano": "GPT-5 Nano",
     "gpt-4": "GPT-4",
     "gpt-4o": "GPT-4o",
     "gpt-4o-mini": "GPT-4o Mini",
@@ -50,6 +50,7 @@ const getModelDisplayName = (modelId: string): string => {
     "anthropic/claude-sonnet-4.5": "Claude Sonnet 4.5",
     "anthropic/claude-haiku-4.5": "Claude Haiku 4.5",
     "google/gemini-3-pro-preview": "Gemini 3 Pro Preview",
+    "google/gemini-3-flash-preview": "Gemini 3 Flash Preview",
     "google/gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
     "google/gemini-2.5-flash": "Gemini 2.5 Flash",
     "google/gemini-2.5-pro": "Gemini 2.5 Pro",

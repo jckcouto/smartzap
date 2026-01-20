@@ -339,8 +339,20 @@ export async function completeSetup(
 // ============================================================================
 
 /**
+ * Hash SHA-256 com salt fixo (mesmo algoritmo do IdentityStep no wizard).
+ */
+async function hashPasswordForLogin(password: string): Promise<string> {
+  const SALT = '_smartzap_salt_2026';
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + SALT);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
  * Attempt login with password
- * Validates against MASTER_PASSWORD env var
+ * Validates against MASTER_PASSWORD env var (stored as hash)
  */
 export async function loginUser(password: string): Promise<UserAuthResult> {
   if (!password) {
@@ -360,8 +372,9 @@ export async function loginUser(password: string): Promise<UserAuthResult> {
   }
 
   try {
-    // Simple comparison with env var
-    const isValid = password === masterPassword
+    // Hash the password before comparing (MASTER_PASSWORD is stored as hash)
+    const passwordHash = await hashPasswordForLogin(password);
+    const isValid = passwordHash === masterPassword
 
     if (!isValid) {
       await recordFailedAttempt()

@@ -88,12 +88,12 @@ export const AI_AGENT_MODELS = [
     description: 'Alta qualidade, raciocínio avançado',
     generation: 2.5,
   },
-  // Gemini 2.0 - Previous generation
+  // Gemini 2.5 Lite - Ultra-fast, low cost
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    description: 'Geração anterior, rápido',
-    generation: 2.0,
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
+    description: 'Ultra-rápido, baixo custo',
+    generation: 2.5,
   },
 ] as const
 

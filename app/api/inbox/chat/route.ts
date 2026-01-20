@@ -204,7 +204,7 @@ export async function POST(req: Request) {
     }
 
     const google = createGoogleGenerativeAI({ apiKey })
-    const modelId = agent.model || 'gemini-2.0-flash'
+    const modelId = agent.model || 'gemini-2.5-flash'
     const model = google(modelId)
 
     // Convert messages to model format

@@ -6,7 +6,7 @@
  *
  * Configurações no banco:
  * - `ocr_provider`: 'gemini' | 'mistral' (default: 'gemini')
- * - `ocr_gemini_model`: modelo Gemini para OCR (default: 'gemini-2.0-flash')
+ * - `ocr_gemini_model`: modelo Gemini para OCR (default: 'gemini-2.5-flash')
  * - `gemini_api_key`: API key do Gemini (fallback: env GEMINI_API_KEY)
  * - `mistral_api_key`: API key do Mistral (fallback: env MISTRAL_API_KEY)
  */

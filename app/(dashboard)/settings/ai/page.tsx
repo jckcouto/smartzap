@@ -63,46 +63,34 @@ type AIConfigResponse = {
 // Modelos Gemini disponíveis para OCR
 const OCR_GEMINI_MODELS = [
   {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite',
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
     price: '$0.02/1M',
     desc: 'Mais barato, OCR básico',
   },
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    price: '$0.10/1M',
-    desc: 'Bom custo/benefício',
-  },
-  {
-    id: 'gemini-2.5-flash-lite',
-    name: 'Gemini 2.5 Flash Lite',
-    price: '$0.10/1M',
-    desc: 'Rápido e econômico',
-  },
-  {
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
-    price: '$0.30/1M',
-    desc: 'Recomendado - boa qualidade',
-  },
-  {
-    id: 'gemini-3-flash-preview',
-    name: 'Gemini 3 Flash (Preview)',
-    price: '$0.50/1M',
-    desc: 'Mais recente, alta qualidade',
+    price: '$0.10/1M',
+    desc: 'Recomendado - bom custo/benefício',
   },
   {
     id: 'gemini-2.5-pro',
     name: 'Gemini 2.5 Pro',
     price: '$1.25/1M',
-    desc: 'Máxima qualidade (tabelas complexas)',
+    desc: 'Alta qualidade (tabelas complexas)',
+  },
+  {
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash (Preview)',
+    price: '$0.50/1M',
+    desc: 'Mais recente, última geração',
   },
 ]
 
 const DEFAULT_OCR_CONFIG: OCRConfig = {
   provider: 'gemini',
-  geminiModel: 'gemini-2.0-flash',
+  geminiModel: 'gemini-2.5-flash',
   mistralStatus: {
     isConfigured: false,
     source: 'none',

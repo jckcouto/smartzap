@@ -2,14 +2,15 @@
 
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { StepCard } from '../StepCard';
 import { ServiceIcon } from '../ServiceIcon';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 interface IdentityStepProps {
-  onComplete: (data: { email: string; password: string; passwordHash: string }) => void;
+  onComplete: (data: { name: string; email: string; password: string; passwordHash: string }) => void;
+  initialName?: string;
   initialEmail?: string;
 }
 
@@ -59,9 +60,10 @@ function validatePassword(password: string): {
 }
 
 /**
- * Step 1: Coleta de email e senha do administrador.
+ * Step 1: Coleta de nome, email e senha do administrador.
  */
-export function IdentityStep({ onComplete, initialEmail = '' }: IdentityStepProps) {
+export function IdentityStep({ onComplete, initialName = '', initialEmail = '' }: IdentityStepProps) {
+  const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -84,6 +86,11 @@ export function IdentityStep({ onComplete, initialEmail = '' }: IdentityStepProp
     setError(null);
 
     // Validações
+    if (!name.trim() || name.trim().length < 2) {
+      setError('Nome deve ter no mínimo 2 caracteres');
+      return;
+    }
+
     if (!email.includes('@')) {
       setError('Email inválido');
       return;
@@ -103,7 +110,7 @@ export function IdentityStep({ onComplete, initialEmail = '' }: IdentityStepProp
 
     try {
       const passwordHash = await hashPassword(password);
-      onComplete({ email, password, passwordHash });
+      onComplete({ name: name.trim(), email, password, passwordHash });
     } catch {
       setError('Erro ao processar. Tente novamente.');
       setIsSubmitting(false);
@@ -112,7 +119,7 @@ export function IdentityStep({ onComplete, initialEmail = '' }: IdentityStepProp
 
   return (
     <StepCard glowColor="zinc">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Header */}
         <div className="flex flex-col items-center text-center">
           <ServiceIcon service="identity" size="lg" />
@@ -120,8 +127,33 @@ export function IdentityStep({ onComplete, initialEmail = '' }: IdentityStepProp
             Crie sua conta
           </h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Email e senha para acessar o painel
+            Dados para acessar o painel
           </p>
+        </div>
+
+        {/* Nome */}
+        <div>
+          <label className="block text-sm font-medium text-zinc-300 mb-2">
+            Seu nome
+          </label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Como devemos te chamar?"
+              autoFocus
+              className={cn(
+                'w-full pl-10 pr-4 py-3 rounded-xl',
+                'bg-zinc-800/50 border border-zinc-700',
+                'text-zinc-100 placeholder:text-zinc-500',
+                'focus:border-emerald-500 focus:outline-none',
+                'focus:shadow-[0_0_0_3px_theme(colors.emerald.500/0.15)]',
+                'transition-all duration-200'
+              )}
+            />
+          </div>
         </div>
 
         {/* Email */}
@@ -292,7 +324,7 @@ export function IdentityStep({ onComplete, initialEmail = '' }: IdentityStepProp
           variant="brand"
           size="lg"
           className="w-full"
-          disabled={isSubmitting || !email || !validation.valid || password !== confirmPassword}
+          disabled={isSubmitting || !name.trim() || !email || !validation.valid || password !== confirmPassword}
         >
           {isSubmitting ? 'Processando...' : 'Continuar'}
         </Button>

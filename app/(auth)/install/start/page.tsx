@@ -18,6 +18,7 @@ import {
 
 const STORAGE_KEYS = {
   // Identity
+  USER_NAME: 'smartzap_install_name',
   USER_EMAIL: 'smartzap_install_email',
   USER_PASS_HASH: 'smartzap_install_pass_hash',
   USER_PASS_PLAIN: 'smartzap_install_pass', // sessionStorage only
@@ -48,6 +49,7 @@ const STORAGE_KEYS = {
 
 interface WizardState {
   // Identity
+  name: string;
   email: string;
   passwordHash: string;
 
@@ -108,6 +110,7 @@ export default function InstallStartPage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const [state, setState] = useState<WizardState>({
+    name: '',
     email: '',
     passwordHash: '',
     vercelToken: '',
@@ -158,11 +161,13 @@ export default function InstallStartPage() {
     }
 
     // Load partial state
+    const name = localStorage.getItem(STORAGE_KEYS.USER_NAME) || '';
     const email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || '';
     const passwordHash = localStorage.getItem(STORAGE_KEYS.USER_PASS_HASH) || '';
 
     setState((prev) => ({
       ...prev,
+      name,
       email,
       passwordHash,
       vercelToken: vercelToken || '',
@@ -187,7 +192,7 @@ export default function InstallStartPage() {
       setStep(4); // QStash
     } else if (vercelToken && vercelProject) {
       setStep(3); // Supabase
-    } else if (email && passwordHash) {
+    } else if (name && email && passwordHash) {
       setStep(2); // Vercel
     }
 
@@ -211,8 +216,9 @@ export default function InstallStartPage() {
   // Step Handlers
   // --------------------------------------------------------------------------
   const handleIdentityComplete = useCallback(
-    (data: { email: string; password: string; passwordHash: string }) => {
+    (data: { name: string; email: string; password: string; passwordHash: string }) => {
       // Save to localStorage
+      localStorage.setItem(STORAGE_KEYS.USER_NAME, data.name);
       localStorage.setItem(STORAGE_KEYS.USER_EMAIL, data.email);
       localStorage.setItem(STORAGE_KEYS.USER_PASS_HASH, data.passwordHash);
 
@@ -221,6 +227,7 @@ export default function InstallStartPage() {
 
       setState((prev) => ({
         ...prev,
+        name: data.name,
         email: data.email,
         passwordHash: data.passwordHash,
       }));
@@ -332,6 +339,7 @@ export default function InstallStartPage() {
           <IdentityStep
             key="identity"
             onComplete={handleIdentityComplete}
+            initialName={state.name}
             initialEmail={state.email}
           />
         );

@@ -12,6 +12,7 @@ type BootstrapInput = {
   supabaseUrl: string;
   serviceRoleKey: string;
   adminEmail: string;
+  adminName?: string;
 };
 
 type BootstrapResult =
@@ -59,6 +60,7 @@ export async function bootstrapInstance({
   supabaseUrl,
   serviceRoleKey,
   adminEmail,
+  adminName,
 }: BootstrapInput): Promise<BootstrapResult> {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
@@ -85,8 +87,13 @@ export async function bootstrapInstance({
   }
 
   // 2) Configura settings iniciais
+  // Nota: company_name é necessário para isSetupComplete() retornar true
+  // Usa o nome do admin se fornecido, senão extrai do email como fallback
+  const companyName = adminName?.trim() || emailNorm.split('@')[0] || 'SmartZap';
   const initialSettings = [
     { key: 'admin_email', value: emailNorm },
+    { key: 'admin_name', value: adminName?.trim() || '' },
+    { key: 'company_name', value: companyName },
     { key: 'installation_date', value: new Date().toISOString() },
     { key: 'version', value: '1.0.0' },
   ];

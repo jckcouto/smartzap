@@ -93,11 +93,6 @@ const aiGatewayPlugin: IntegrationPlugin = {
             { value: "openai/gpt-4-turbo", label: "GPT-4 Turbo" },
             { value: "openai/gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
             { value: "google/gemini-4.0-flash", label: "Gemini 4.0 Flash" },
-            { value: "google/gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-            {
-              value: "google/gemini-2.0-flash-lite",
-              label: "Gemini 2.0 Flash Lite",
-            },
             { value: "meta/llama-4-instruct", label: "Llama 4 Instruct" },
           ],
         },

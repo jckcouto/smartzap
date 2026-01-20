@@ -3,39 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * POST /api/installer/qstash/validate
  *
- * Valida credenciais do QStash (token + signing key).
+ * Valida o token do QStash fazendo uma request à API.
  * Usado no step 4 do wizard de instalação.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { token, signingKey } = await req.json();
+    const { token } = await req.json();
 
     // Validação básica
     if (!token || typeof token !== 'string') {
       return NextResponse.json(
         { error: 'Token QStash é obrigatório' },
-        { status: 400 }
-      );
-    }
-
-    if (!signingKey || typeof signingKey !== 'string') {
-      return NextResponse.json(
-        { error: 'Signing Key é obrigatória' },
-        { status: 400 }
-      );
-    }
-
-    // Validar formato do signing key (começa com sig_ e tem ~32 chars)
-    if (!signingKey.startsWith('sig_')) {
-      return NextResponse.json(
-        { error: 'Signing Key deve começar com "sig_"' },
-        { status: 400 }
-      );
-    }
-
-    if (signingKey.length < 28) {
-      return NextResponse.json(
-        { error: 'Signing Key muito curta' },
         { status: 400 }
       );
     }
@@ -64,17 +42,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Token válido - QStash não tem endpoint pra validar signing key
-    // A signing key só é usada para verificar webhooks, então confiamos no formato
     return NextResponse.json({
       valid: true,
-      message: 'Credenciais QStash válidas',
+      message: 'Token QStash válido',
     });
 
   } catch (error) {
     console.error('[installer/qstash/validate] Erro:', error);
     return NextResponse.json(
-      { error: 'Erro interno ao validar credenciais' },
+      { error: 'Erro interno ao validar token' },
       { status: 500 }
     );
   }

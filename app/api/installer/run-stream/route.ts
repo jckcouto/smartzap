@@ -27,7 +27,6 @@ const RunSchema = z
     }),
     upstash: z.object({
       qstashToken: z.string().min(1),
-      qstashSigningKey: z.string().min(1),
       redisRestUrl: z.string().url(),
       redisRestToken: z.string().min(1),
     }),
@@ -291,7 +290,6 @@ export async function POST(req: Request) {
 
         // QStash
         { key: 'QSTASH_TOKEN', value: upstash.qstashToken, targets: envTargets },
-        { key: 'QSTASH_CURRENT_SIGNING_KEY', value: upstash.qstashSigningKey, targets: envTargets },
 
         // Redis
         { key: 'UPSTASH_REDIS_REST_URL', value: upstash.redisRestUrl, targets: envTargets },

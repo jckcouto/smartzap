@@ -35,7 +35,6 @@ const STORAGE_KEYS = {
 
   // QStash
   QSTASH_TOKEN: 'smartzap_install_qstash_token',
-  QSTASH_SIGNING_KEY: 'smartzap_install_qstash_signing_key',
 
   // Redis
   REDIS_REST_URL: 'smartzap_install_redis_url',
@@ -68,7 +67,6 @@ interface WizardState {
 
   // QStash
   qstashToken: string;
-  qstashSigningKey: string;
 
   // Redis
   redisRestUrl: string;
@@ -118,7 +116,6 @@ export default function InstallStartPage() {
     supabasePublishableKey: '',
     supabaseSecretKey: '',
     qstashToken: '',
-    qstashSigningKey: '',
     redisRestUrl: '',
     redisRestToken: '',
   });
@@ -136,7 +133,6 @@ export default function InstallStartPage() {
     const supabasePublishableKey = localStorage.getItem(STORAGE_KEYS.SUPABASE_PUBLISHABLE_KEY);
     const supabaseSecretKey = localStorage.getItem(STORAGE_KEYS.SUPABASE_SECRET_KEY);
     const qstashToken = localStorage.getItem(STORAGE_KEYS.QSTASH_TOKEN);
-    const qstashSigningKey = localStorage.getItem(STORAGE_KEYS.QSTASH_SIGNING_KEY);
     const redisUrl = localStorage.getItem(STORAGE_KEYS.REDIS_REST_URL);
     const redisToken = localStorage.getItem(STORAGE_KEYS.REDIS_REST_TOKEN);
 
@@ -149,7 +145,6 @@ export default function InstallStartPage() {
       supabasePublishableKey &&
       supabaseSecretKey &&
       qstashToken &&
-      qstashSigningKey &&
       redisUrl &&
       redisToken
     ) {
@@ -173,7 +168,6 @@ export default function InstallStartPage() {
       supabasePublishableKey: supabasePublishableKey || '',
       supabaseSecretKey: supabaseSecretKey || '',
       qstashToken: qstashToken || '',
-      qstashSigningKey: qstashSigningKey || '',
       redisRestUrl: redisUrl || '',
       redisRestToken: redisToken || '',
     }));
@@ -182,7 +176,7 @@ export default function InstallStartPage() {
     if (redisUrl && redisToken) {
       // All done, shouldn't reach here but just in case
       router.replace('/install/wizard');
-    } else if (qstashToken && qstashSigningKey) {
+    } else if (qstashToken) {
       setStep(5); // Redis
     } else if (supabasePat && supabaseUrl && supabasePublishableKey) {
       setStep(4); // QStash
@@ -276,14 +270,12 @@ export default function InstallStartPage() {
   );
 
   const handleQStashComplete = useCallback(
-    (data: { token: string; signingKey: string }) => {
+    (data: { token: string }) => {
       localStorage.setItem(STORAGE_KEYS.QSTASH_TOKEN, data.token);
-      localStorage.setItem(STORAGE_KEYS.QSTASH_SIGNING_KEY, data.signingKey);
 
       setState((prev) => ({
         ...prev,
         qstashToken: data.token,
-        qstashSigningKey: data.signingKey,
       }));
 
       goNext();

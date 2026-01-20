@@ -9,19 +9,17 @@ import { ValidatingOverlay } from '../ValidatingOverlay';
 import { SuccessCheckmark } from '../SuccessCheckmark';
 
 interface QStashStepProps {
-  onComplete: (data: { token: string; signingKey: string }) => void;
+  onComplete: (data: { token: string }) => void;
 }
 
 /**
- * Step 4: Coleta do QStash Token e Signing Key.
+ * Step 4: Coleta do QStash Token.
  *
- * Campos:
- * - QStash Token: formato JWT ou prefixo qstash_
- * - Current Signing Key: string longa (40+ chars) para verificar callbacks
+ * O token é validado fazendo uma request à API do QStash.
+ * Formato: JWT (3 partes separadas por .) ou prefixo qstash_
  */
 export function QStashStep({ onComplete }: QStashStepProps) {
   const [token, setToken] = useState('');
-  const [signingKey, setSigningKey] = useState('');
   const [validating, setValidating] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,18 +31,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
     return trimmed.split('.').length === 3 || trimmed.startsWith('qstash_');
   };
 
-  // Valida formato da signing key
-  // A signing key do QStash começa com "sig_" e tem ~32 chars
-  const isValidSigningKey = (k: string): boolean => {
-    const trimmed = k.trim();
-    return trimmed.startsWith('sig_') && trimmed.length >= 28;
-  };
-
-  const canSubmit =
-    token.trim().length >= 30 &&
-    isValidToken(token) &&
-    signingKey.trim().length >= 28 &&
-    isValidSigningKey(signingKey);
+  const canSubmit = token.trim().length >= 30 && isValidToken(token);
 
   // Ref para evitar submits duplicados
   const hasSubmittedRef = useRef(false);
@@ -52,11 +39,6 @@ export function QStashStep({ onComplete }: QStashStepProps) {
   const handleValidate = useCallback(async () => {
     if (!isValidToken(token)) {
       setError('Token QStash inválido (deve ser JWT ou começar com qstash_)');
-      return;
-    }
-
-    if (!isValidSigningKey(signingKey)) {
-      setError('Signing Key inválida (deve começar com sig_)');
       return;
     }
 
@@ -68,16 +50,13 @@ export function QStashStep({ onComplete }: QStashStepProps) {
       const res = await fetch('/api/installer/qstash/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: token.trim(),
-          signingKey: signingKey.trim(),
-        }),
+        body: JSON.stringify({ token: token.trim() }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.valid) {
-        throw new Error(data.error || 'Credenciais QStash inválidas');
+        throw new Error(data.error || 'Token QStash inválido');
       }
 
       setSuccess(true);
@@ -92,9 +71,9 @@ export function QStashStep({ onComplete }: QStashStepProps) {
     } finally {
       setValidating(false);
     }
-  }, [token, signingKey]);
+  }, [token]);
 
-  // Auto-submit quando ambos os campos estão válidos
+  // Auto-submit quando token válido
   useEffect(() => {
     if (canSubmit && !validating && !success && !error && !hasSubmittedRef.current) {
       const timer = setTimeout(() => {
@@ -106,10 +85,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
   }, [canSubmit, validating, success, error, handleValidate]);
 
   const handleSuccessComplete = () => {
-    onComplete({
-      token: token.trim(),
-      signingKey: signingKey.trim(),
-    });
+    onComplete({ token: token.trim() });
   };
 
   // Show success state
@@ -129,7 +105,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
       <ValidatingOverlay
         isVisible={validating}
         message="Verificando QStash..."
-        subMessage="Validando credenciais"
+        subMessage="Validando token"
       />
 
       <div className="flex flex-col items-center text-center">
@@ -141,7 +117,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
           Configure filas de mensagens
         </h2>
         <p className="mt-1 text-sm text-zinc-400">
-          Token e Signing Key do Upstash QStash
+          Token do Upstash QStash
         </p>
 
         {/* Token Input */}
@@ -155,22 +131,6 @@ export function QStashStep({ onComplete }: QStashStepProps) {
             }}
             placeholder="eyJVc2VySUQi... ou qstash_..."
             minLength={30}
-            accentColor="orange"
-            showCharCount={false}
-          />
-        </div>
-
-        {/* Signing Key Input */}
-        <div className="w-full mt-4">
-          <TokenInput
-            label="Current Signing Key"
-            value={signingKey}
-            onChange={(v) => {
-              setSigningKey(v);
-              setError(null);
-            }}
-            placeholder="sig_xxx..."
-            minLength={28}
             accentColor="orange"
             showCharCount={false}
           />

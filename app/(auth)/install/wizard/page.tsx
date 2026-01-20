@@ -17,7 +17,6 @@ const STORAGE_KEYS = {
   SUPABASE_PAT: 'smartzap_install_supabase_pat',
   SUPABASE_URL: 'smartzap_install_supabase_url',
   QSTASH_TOKEN: 'smartzap_install_qstash_token',
-  QSTASH_SIGNING_KEY: 'smartzap_install_qstash_signing_key',
   REDIS_REST_URL: 'smartzap_install_redis_url',
   REDIS_REST_TOKEN: 'smartzap_install_redis_token',
 } as const;
@@ -37,7 +36,6 @@ interface CollectedData {
   supabasePat: string;
   supabaseUrl: string;
   qstashToken: string;
-  qstashSigningKey: string;
   redisRestUrl: string;
   redisRestToken: string;
 }
@@ -95,7 +93,6 @@ export default function InstallWizardPage() {
     const supabasePat = localStorage.getItem(STORAGE_KEYS.SUPABASE_PAT);
     const supabaseUrl = localStorage.getItem(STORAGE_KEYS.SUPABASE_URL);
     const qstashToken = localStorage.getItem(STORAGE_KEYS.QSTASH_TOKEN);
-    const qstashSigningKey = localStorage.getItem(STORAGE_KEYS.QSTASH_SIGNING_KEY);
     const redisUrl = localStorage.getItem(STORAGE_KEYS.REDIS_REST_URL);
     const redisToken = localStorage.getItem(STORAGE_KEYS.REDIS_REST_TOKEN);
     const email = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
@@ -107,7 +104,6 @@ export default function InstallWizardPage() {
       !vercelProject ||
       !supabasePat ||
       !qstashToken ||
-      !qstashSigningKey ||
       !redisUrl ||
       !redisToken ||
       !email ||
@@ -139,7 +135,6 @@ export default function InstallWizardPage() {
       supabasePat,
       supabaseUrl: resolvedSupabaseUrl,
       qstashToken,
-      qstashSigningKey,
       redisRestUrl: redisUrl,
       redisRestToken: redisToken,
     });
@@ -231,7 +226,6 @@ export default function InstallWizardPage() {
         },
         upstash: {
           qstashToken: data.qstashToken,
-          qstashSigningKey: data.qstashSigningKey,
           redisRestUrl: data.redisRestUrl,
           redisRestToken: data.redisRestToken,
         },
@@ -330,7 +324,7 @@ export default function InstallWizardPage() {
                 </li>
                 <li className="flex items-center gap-2 text-[var(--ds-text-secondary)]">
                   <CheckCircle className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                  QStash: Token + Signing Key
+                  QStash: Token configurado
                 </li>
                 <li className="flex items-center gap-2 text-[var(--ds-text-secondary)]">
                   <CheckCircle className="w-4 h-4 text-red-500 flex-shrink-0" />

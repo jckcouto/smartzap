@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@upstash/workflow'
-import { Receiver } from '@upstash/qstash'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { supabase } from '@/lib/supabase'
 import { templateDb } from '@/lib/supabase-db'
@@ -185,28 +184,8 @@ export async function POST(request: NextRequest) {
   const cookieHeader = request.headers.get('cookie') || ''
   const hasSession = cookieHeader.includes('smartzap_session=')
 
-  if (signature) {
-    const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY
-    const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY
-    if (!currentSigningKey && !nextSigningKey) {
-      return NextResponse.json(
-        { error: 'QStash signing keys not configured. Set QSTASH_CURRENT_SIGNING_KEY.' },
-        { status: 500 }
-      )
-    }
-    const receiver = new Receiver({
-      currentSigningKey: currentSigningKey || '',
-      nextSigningKey: nextSigningKey || '',
-    })
-    try {
-      await receiver.verify({
-        signature,
-        body: bodyText,
-      })
-    } catch {
-      return NextResponse.json({ error: 'Invalid QStash signature' }, { status: 403 })
-    }
-  } else if (!hasSession) {
+  // Auth: QStash requests têm signature header, requests manuais usam session ou API key
+  if (!signature && !hasSession) {
     const authResult = await verifyApiKey(request)
     if (!authResult.valid) {
       return unauthorizedResponse(authResult.error)

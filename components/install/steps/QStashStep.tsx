@@ -34,16 +34,16 @@ export function QStashStep({ onComplete }: QStashStepProps) {
   };
 
   // Valida formato da signing key
-  // A signing key do QStash é uma string longa (50+ chars), não tem prefixo específico
+  // A signing key do QStash começa com "sig_" e tem ~32 chars
   const isValidSigningKey = (k: string): boolean => {
     const trimmed = k.trim();
-    return trimmed.length >= 40; // Signing keys são longas
+    return trimmed.startsWith('sig_') && trimmed.length >= 28;
   };
 
   const canSubmit =
     token.trim().length >= 30 &&
     isValidToken(token) &&
-    signingKey.trim().length >= 40 &&
+    signingKey.trim().length >= 28 &&
     isValidSigningKey(signingKey);
 
   // Ref para evitar submits duplicados
@@ -56,7 +56,7 @@ export function QStashStep({ onComplete }: QStashStepProps) {
     }
 
     if (!isValidSigningKey(signingKey)) {
-      setError('Signing Key inválida (muito curta)');
+      setError('Signing Key inválida (deve começar com sig_)');
       return;
     }
 
@@ -169,8 +169,8 @@ export function QStashStep({ onComplete }: QStashStepProps) {
               setSigningKey(v);
               setError(null);
             }}
-            placeholder="Current Signing Key do console"
-            minLength={40}
+            placeholder="sig_xxx..."
+            minLength={28}
             accentColor="orange"
             showCharCount={false}
           />

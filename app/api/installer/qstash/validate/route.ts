@@ -25,8 +25,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validar formato do signing key (string longa, sem prefixo específico)
-    if (signingKey.length < 40) {
+    // Validar formato do signing key (começa com sig_ e tem ~32 chars)
+    if (!signingKey.startsWith('sig_')) {
+      return NextResponse.json(
+        { error: 'Signing Key deve começar com "sig_"' },
+        { status: 400 }
+      );
+    }
+
+    if (signingKey.length < 28) {
       return NextResponse.json(
         { error: 'Signing Key muito curta' },
         { status: 400 }

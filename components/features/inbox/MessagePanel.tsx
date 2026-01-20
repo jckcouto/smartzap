@@ -37,6 +37,8 @@ export interface MessagePanelProps {
   isLoadingMore: boolean
   isSending: boolean
   quickRepliesLoading: boolean
+  /** Callback to refresh quick replies after CRUD operations */
+  onRefreshQuickReplies?: () => void
 
   // Pagination
   hasMoreMessages: boolean
@@ -73,6 +75,7 @@ export function MessagePanel({
   isLoadingMore,
   isSending,
   quickRepliesLoading,
+  onRefreshQuickReplies,
   hasMoreMessages,
   onLoadMore,
   onSendMessage,
@@ -293,6 +296,7 @@ export function MessagePanel({
         }
         quickReplies={quickReplies}
         quickRepliesLoading={quickRepliesLoading}
+        onRefreshQuickReplies={onRefreshQuickReplies}
         conversationId={conversation?.id}
         showAISuggest={isOpen && conversation?.mode === 'human'}
       />

@@ -79,7 +79,7 @@ export function useInbox(options: UseInboxOptions = {}) {
   const { labels, isLoading: isLoadingLabels } = useLabels()
 
   // Quick Replies
-  const { quickReplies, isLoading: isLoadingQuickReplies } = useQuickReplies()
+  const { quickReplies, isLoading: isLoadingQuickReplies, refetch: refetchQuickReplies } = useQuickReplies()
 
   // ==========================================================================
   // AI Agent Edit Modal State

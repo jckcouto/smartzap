@@ -30,6 +30,8 @@ export interface MessageInputProps {
   placeholder?: string
   quickReplies: InboxQuickReply[]
   quickRepliesLoading?: boolean
+  /** Callback to refresh quick replies after CRUD operations */
+  onRefreshQuickReplies?: () => void
   /** Conversation ID for AI suggestions */
   conversationId?: string | null
   /** Whether to show AI suggest button */
@@ -43,6 +45,7 @@ export function MessageInput({
   placeholder = 'Escreva uma mensagem...',
   quickReplies,
   quickRepliesLoading,
+  onRefreshQuickReplies,
   conversationId,
   showAISuggest = false,
 }: MessageInputProps) {
@@ -171,6 +174,7 @@ export function MessageInput({
           quickReplies={quickReplies}
           onSelect={handleQuickReplySelect}
           isLoading={quickRepliesLoading}
+          onRefresh={onRefreshQuickReplies}
         />
 
         {/* AI Suggest button */}

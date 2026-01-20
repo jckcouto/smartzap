@@ -51,16 +51,16 @@ export default function DateTimePicker({
           type="button"
           disabled={disabled}
           className={cn(
-            "w-full rounded-xl border border-white/10 bg-zinc-950/40 px-4 py-3 text-sm text-white flex items-center justify-between gap-3",
+            "w-full rounded-xl border border-[var(--ds-border-default)] bg-[var(--ds-bg-elevated)] px-4 py-3 text-sm text-[var(--ds-text-primary)] flex items-center justify-between gap-3",
             disabled ? "opacity-50 cursor-not-allowed" : null,
           )}
         >
-          <span className="text-white">{display}</span>
+          <span className="text-[var(--ds-text-primary)]">{display}</span>
           <Clock className="h-4 w-4 text-emerald-400" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className={cn("w-52 border border-white/10 bg-black p-4", className)}>
-        <div className="flex items-center justify-center gap-2 text-sm text-white">
+      <PopoverContent className={cn("w-52 border border-[var(--ds-border-default)] bg-[var(--ds-bg-base)] p-4", className)}>
+        <div className="flex items-center justify-center gap-2 text-sm text-[var(--ds-text-primary)]">
           <Select
             value={hour}
             onValueChange={(next) => {
@@ -69,7 +69,7 @@ export default function DateTimePicker({
               onChange?.(`${next}:${minuteRef.current}`)
             }}
           >
-            <SelectTrigger className="h-9 w-[64px] bg-zinc-950/60 text-white border-white/10">
+            <SelectTrigger className="h-9 w-[64px] bg-[var(--ds-bg-elevated)] text-[var(--ds-text-primary)] border-[var(--ds-border-default)]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-56">
@@ -81,7 +81,7 @@ export default function DateTimePicker({
             </SelectContent>
           </Select>
 
-          <span className="text-gray-400">:</span>
+          <span className="text-[var(--ds-text-muted)]">:</span>
 
           <Select
             value={minute}
@@ -91,7 +91,7 @@ export default function DateTimePicker({
               onChange?.(`${hourRef.current}:${next}`)
             }}
           >
-            <SelectTrigger className="h-9 w-[64px] bg-zinc-950/60 text-white border-white/10">
+            <SelectTrigger className="h-9 w-[64px] bg-[var(--ds-bg-elevated)] text-[var(--ds-text-primary)] border-[var(--ds-border-default)]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="max-h-56">

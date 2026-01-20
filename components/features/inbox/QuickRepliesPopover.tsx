@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useMemo } from 'react'
-import { MessageSquareDashed, Search, Plus, X } from 'lucide-react'
+import { MessageSquareDashed, Search, Settings, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,21 +21,25 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { QuickReplyManager } from './QuickReplyManager'
 import type { InboxQuickReply } from '@/types'
 
 export interface QuickRepliesPopoverProps {
   quickReplies: InboxQuickReply[]
   onSelect: (content: string) => void
   isLoading?: boolean
+  onRefresh?: () => void
 }
 
 export function QuickRepliesPopover({
   quickReplies,
   onSelect,
   isLoading,
+  onRefresh,
 }: QuickRepliesPopoverProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [managerOpen, setManagerOpen] = useState(false)
 
   // Filter quick replies
   const filtered = useMemo(() => {
@@ -84,6 +88,16 @@ export function QuickRepliesPopover({
         <div className="p-3 border-b border-zinc-800">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-medium text-white">Respostas Rápidas</h4>
+            <button
+              onClick={() => {
+                setOpen(false)
+                setManagerOpen(true)
+              }}
+              className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              title="Gerenciar respostas rápidas"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
@@ -155,6 +169,14 @@ export function QuickRepliesPopover({
           )}
         </ScrollArea>
       </PopoverContent>
+
+      {/* Manager Modal */}
+      <QuickReplyManager
+        open={managerOpen}
+        onOpenChange={setManagerOpen}
+        quickReplies={quickReplies}
+        onRefresh={onRefresh || (() => {})}
+      />
     </Popover>
   )
 }

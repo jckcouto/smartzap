@@ -7,7 +7,7 @@ import { InstallLayout, StepCard, ServiceIcon } from '@/components/install';
 import { CheckCircle, Loader2, AlertCircle, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// Storage keys
+// Storage keys (must match /install/start/page.tsx)
 const STORAGE_KEYS = {
   USER_EMAIL: 'smartzap_install_email',
   USER_PASS_HASH: 'smartzap_install_pass_hash',
@@ -17,6 +17,8 @@ const STORAGE_KEYS = {
   SUPABASE_PAT: 'smartzap_install_supabase_pat',
   SUPABASE_URL: 'smartzap_install_supabase_url',
   SUPABASE_REF: 'smartzap_install_supabase_ref',
+  SUPABASE_PUBLISHABLE_KEY: 'smartzap_install_supabase_publishable_key',
+  SUPABASE_SECRET_KEY: 'smartzap_install_supabase_secret_key',
   SUPABASE_DB_PASS: 'smartzap_install_supabase_db_pass',
   QSTASH_TOKEN: 'smartzap_install_qstash_token',
   REDIS_REST_URL: 'smartzap_install_redis_url',
@@ -182,11 +184,23 @@ export default function InstallWizardPage() {
               setProvisioningProgress(100);
               setPhase('success');
 
-              // Clean up sensitive data
+              // Clean up ALL install data to prevent redirect loops
+              // Sensitive data
               localStorage.removeItem(STORAGE_KEYS.SUPABASE_PAT);
               localStorage.removeItem(STORAGE_KEYS.VERCEL_TOKEN);
               localStorage.removeItem(STORAGE_KEYS.USER_PASS_HASH);
               sessionStorage.removeItem(STORAGE_KEYS.USER_PASS_PLAIN);
+              // Other tokens (to avoid inconsistent state and redirect loops)
+              localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+              localStorage.removeItem(STORAGE_KEYS.VERCEL_PROJECT);
+              localStorage.removeItem(STORAGE_KEYS.SUPABASE_URL);
+              localStorage.removeItem(STORAGE_KEYS.SUPABASE_REF);
+              localStorage.removeItem(STORAGE_KEYS.SUPABASE_PUBLISHABLE_KEY);
+              localStorage.removeItem(STORAGE_KEYS.SUPABASE_SECRET_KEY);
+              localStorage.removeItem(STORAGE_KEYS.SUPABASE_DB_PASS);
+              localStorage.removeItem(STORAGE_KEYS.QSTASH_TOKEN);
+              localStorage.removeItem(STORAGE_KEYS.REDIS_REST_URL);
+              localStorage.removeItem(STORAGE_KEYS.REDIS_REST_TOKEN);
             }
           } catch (parseErr) {
             console.error('[wizard] Erro ao parsear evento:', parseErr);

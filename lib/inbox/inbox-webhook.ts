@@ -6,7 +6,7 @@
  * - T048: Update delivery status in inbox_messages
  */
 
-import { createClient } from '@/lib/supabase-server'
+import { getSupabaseAdmin } from '@/lib/supabase'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { inboxDb } from './inbox-db'
 import {
@@ -69,7 +69,7 @@ export async function handleInboundMessage(
   messageId: string
   triggeredAI: boolean
 }> {
-  const supabase = await createClient()
+  // Note: We use inboxDb which uses getSupabaseAdmin() internally
   const normalizedPhone = normalizePhoneNumber(payload.from)
 
   // 1. Get or create conversation
@@ -136,8 +136,6 @@ async function triggerAIProcessing(
   conversation: InboxConversation,
   message: InboxMessage
 ): Promise<boolean> {
-  const supabase = await createClient()
-
   // Get the AI agent assigned to this conversation (or default)
   const agent = await getAIAgentForConversation(conversation.id)
   if (!agent) {
@@ -175,14 +173,15 @@ async function triggerAIProcessing(
 
 /**
  * Process AI response after debounce
+ * IMPORTANT: This runs in BACKGROUND after debounce, so we must NOT use
+ * createClient() which calls cookies() - it hangs outside request context.
+ * Use getSupabaseAdmin() or inboxDb (which uses admin internally) instead.
  */
 async function processAIResponse(
   conversation: InboxConversation,
   agent: AIAgent,
   messageIds: string[]
 ): Promise<void> {
-  const supabase = await createClient()
-
   // Refresh conversation state (might have changed during debounce)
   const currentConversation = await inboxDb.getConversation(conversation.id)
   if (!currentConversation) {
@@ -319,7 +318,11 @@ async function handleAIHandoff(
 export async function handleDeliveryStatus(
   payload: StatusUpdatePayload
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = getSupabaseAdmin()
+  if (!supabase) {
+    console.error('[Inbox] Supabase admin client not available')
+    return false
+  }
 
   // Find message by WhatsApp message ID
   const { data: message, error } = await supabase
@@ -371,7 +374,11 @@ export async function handleDeliveryStatus(
  * Find contact ID by phone number
  */
 async function findContactId(phone: string): Promise<string | null> {
-  const supabase = await createClient()
+  const supabase = getSupabaseAdmin()
+  if (!supabase) {
+    console.error('[Inbox] Supabase admin client not available')
+    return null
+  }
 
   const { data } = await supabase
     .from('contacts')
@@ -389,7 +396,11 @@ async function findContactId(phone: string): Promise<string | null> {
 async function getAIAgentForConversation(
   conversationId: string
 ): Promise<AIAgent | null> {
-  const supabase = await createClient()
+  const supabase = getSupabaseAdmin()
+  if (!supabase) {
+    console.error('[Inbox] Supabase admin client not available')
+    return null
+  }
 
   // Check if conversation has an assigned agent
   const { data: conversation } = await supabase

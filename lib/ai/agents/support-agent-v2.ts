@@ -7,12 +7,13 @@
  * File Search CANNOT be combined with other tools - that's why we need two steps.
  */
 
-import { generateText, tool } from 'ai'
 import { z } from 'zod'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { getSupabaseAdmin } from '@/lib/supabase'
-import { withDevTools } from '@/lib/ai/devtools'
 import type { AIAgent, InboxConversation, InboxMessage } from '@/types'
+
+// NOTE: AI dependencies are imported DYNAMICALLY inside processSupportAgentV2
+// This is required because static imports can cause issues when called from
+// background contexts (like debounced webhook handlers)
 
 // =============================================================================
 // Types
@@ -153,12 +154,32 @@ export async function processSupportAgentV2(
   const { agent, conversation, messages } = config
   const startTime = Date.now()
 
-  // Get API key
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY
+  // Dynamic imports - required for background execution context
+  const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
+  const { generateText, tool } = await import('ai')
+  const { withDevTools } = await import('@/lib/ai/devtools')
+
+  // Get API key from database only (never use env vars for multi-tenant SaaS)
+  const supabase = getSupabaseAdmin()
+  if (!supabase) {
+    return {
+      success: false,
+      error: 'Database connection not available',
+      latencyMs: Date.now() - startTime,
+    }
+  }
+
+  const { data: geminiSetting } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'gemini_api_key')
+    .maybeSingle()
+
+  const apiKey = geminiSetting?.value
   if (!apiKey) {
     return {
       success: false,
-      error: 'API key not configured',
+      error: 'API key não configurada. Configure em Configurações > IA.',
       latencyMs: Date.now() - startTime,
     }
   }
@@ -191,6 +212,7 @@ export async function processSupportAgentV2(
       console.log(`[support-agent] System prompt length: ${agent.system_prompt?.length || 0} chars`)
 
       const fileSearchStartTime = Date.now()
+      console.log(`[support-agent] Starting File Search at ${new Date().toISOString()}`)
 
       // File Search funciona melhor com prompt único (mesmo padrão do teste)
       // O histórico da conversa é incluído no system prompt se necessário
@@ -206,7 +228,7 @@ export async function processSupportAgentV2(
         },
         temperature: DEFAULT_TEMPERATURE,
         maxOutputTokens: DEFAULT_MAX_TOKENS,
-        abortSignal: AbortSignal.timeout(25000), // 25s timeout (Vercel max é 30s)
+        // TEMP: Removido AbortSignal para debug - endpoint de teste não usa e funciona
       })
 
       console.log(`[support-agent] File Search completed in ${Date.now() - fileSearchStartTime}ms`)

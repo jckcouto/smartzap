@@ -179,10 +179,9 @@ export default function InstallStartPage() {
     }));
 
     // Determine starting step based on saved progress
-    if (redisUrl && redisToken) {
-      // All done, shouldn't reach here but just in case
-      router.replace('/install/wizard');
-    } else if (qstashToken) {
+    // Note: Removido o check "if redisUrl && redisToken → wizard" porque causava loop
+    // Agora o único redirecionamento para /wizard é se TODOS os tokens existirem (verificado acima)
+    if (qstashToken) {
       setStep(5); // Redis
     } else if (supabasePat && supabaseUrl && supabasePublishableKey) {
       setStep(4); // QStash

@@ -141,7 +141,7 @@ Todos devem ser NEUTROS e TRANSACIONAIS.
 - 🚫 SEM EMOJIS (❌ "Pedido Confirmado ✅" → ✅ "Pedido Confirmado")
 - 🚫 SEM ASTERISCOS (❌ "*Atualização*" → ✅ "Atualização")
 - 🚫 SEM QUEBRAS DE LINHA (texto em uma única linha)
-- 🚫 SEM FORMATAÇÃO (❌ "_itálico_", "~riscado~", "`código`")
+- 🚫 SEM FORMATAÇÃO (❌ "_itálico_", "~riscado~", codigo entre crases)
 
 ## FORMATO JSON (retorne APENAS JSON válido, sem markdown, sem explicações)
 [

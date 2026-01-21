@@ -121,7 +121,7 @@ Cada template deve ter uma abordagem única para o mesmo produto/oferta.
 - 🚫 SEM EMOJIS (❌ "Oferta Especial 🔥" → ✅ "Oferta Especial")
 - 🚫 SEM ASTERISCOS (❌ "*Promoção*" → ✅ "Promoção")
 - 🚫 SEM QUEBRAS DE LINHA (texto em uma única linha)
-- 🚫 SEM FORMATAÇÃO (❌ "_itálico_", "~riscado~", "`código`")
+- 🚫 SEM FORMATAÇÃO (❌ "_itálico_", "~riscado~", codigo entre crases)
 
 ## FORMATO JSON (retorne APENAS JSON válido, sem markdown, sem explicações)
 [

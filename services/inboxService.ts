@@ -94,7 +94,7 @@ async function getConversation(id: string): Promise<InboxConversation> {
   const response = await fetch(`/api/inbox/conversations/${id}`)
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch conversation' }))
-    throw new Error(error.error || 'Failed to fetch conversation')
+    throw new Error(`${response.status}: ${error.error || 'Failed to fetch conversation'}`)
   }
   return response.json()
 }

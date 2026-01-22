@@ -1,34 +1,20 @@
 'use client'
 
 /**
- * T059: AIAgentCard - Display single AI agent with actions
- * Shows agent info, status, and action buttons
+ * AIAgentCard - Display single AI agent with clean, minimal design
+ * Redesign: Removed technical metrics, added semantic description, cleaner layout
  */
 
 import React from 'react'
 import {
-  Bot,
-  Star,
   Pencil,
   Trash2,
-  ToggleLeft,
-  ToggleRight,
-  MoreVertical,
-  Clock,
-  Thermometer,
-  FileText,
+  Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Card } from '@/components/ui/card'
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +32,44 @@ export interface AIAgentCardProps {
   disabled?: boolean
 }
 
+// Extrai descrição curta do system prompt (primeira frase ou função principal)
+function getAgentDescription(prompt: string): string {
+  // Tenta extrair a função do agente (padrões comuns em português)
+  const patterns = [
+    /(?:você|vc)?\s*(?:ajuda|auxilia|responde|atende)\s*([^.!?\n]{10,50})/i,
+    /(?:sua função é|seu papel é|você deve)\s*([^.!?\n]{10,50})/i,
+    /assistente\s+(?:de|para|virtual)\s*([^.!?\n]{5,40})/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = prompt.match(pattern)
+    if (match) {
+      const desc = match[0].trim()
+        .replace(/^você\s+/i, '')
+        .replace(/^vc\s+/i, '')
+      if (desc.length > 60) return desc.slice(0, 57) + '...'
+      return desc
+    }
+  }
+
+  // Fallback: primeira frase até 60 chars
+  const firstSentence = prompt.split(/[.!?\n]/)[0]?.trim()
+  if (!firstSentence) return 'Assistente virtual'
+  if (firstSentence.length > 60) return firstSentence.slice(0, 57) + '...'
+  return firstSentence
+}
+
+// Gera iniciais do nome (até 2 letras)
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+}
+
 export function AIAgentCard({
   agent,
   onEdit,
@@ -55,152 +79,139 @@ export function AIAgentCard({
   isUpdating,
   disabled,
 }: AIAgentCardProps) {
-  const debounceSeconds = agent.debounce_ms / 1000
-
   return (
     <Card
       className={cn(
-        'relative transition-all',
-        !agent.is_active && 'opacity-60',
-        agent.is_default && 'ring-2 ring-primary-500/50'
+        'group relative overflow-hidden transition-all duration-200',
+        'hover:shadow-lg hover:shadow-primary-500/5',
+        !agent.is_active && 'opacity-50',
+        agent.is_default && 'ring-1 ring-primary-500/30'
       )}
     >
-      {/* Default badge */}
-      {agent.is_default && (
-        <div className="absolute -top-2 -right-2">
-          <Badge className="bg-primary-500 text-white gap-1">
-            <Star className="h-3 w-3" />
+      {/* Status bar no topo */}
+      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900/50 border-b border-zinc-800">
+        <div className="flex items-center gap-2">
+          {/* Indicador de status clicável */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => onToggleActive(agent, !agent.is_active)}
+                disabled={isUpdating || disabled}
+                className={cn(
+                  'w-2 h-2 rounded-full transition-all cursor-pointer',
+                  'disabled:cursor-not-allowed',
+                  agent.is_active
+                    ? 'bg-primary-400 shadow-[0_0_8px] shadow-primary-400/50'
+                    : 'bg-zinc-600 hover:bg-zinc-500'
+                )}
+                aria-label={agent.is_active ? 'Desativar agente' : 'Ativar agente'}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              {agent.is_active ? 'Ativo - Clique para desativar' : 'Inativo - Clique para ativar'}
+            </TooltipContent>
+          </Tooltip>
+
+          <span className="text-[10px] uppercase tracking-wider text-zinc-500">
+            {agent.is_active ? 'Ativo' : 'Inativo'}
+          </span>
+        </div>
+
+        {agent.is_default && (
+          <Badge
+            variant="secondary"
+            className="h-5 text-[10px] bg-primary-500/10 text-primary-400 border-0"
+          >
+            <Star className="h-2.5 w-2.5 mr-1" />
             Padrão
           </Badge>
-        </div>
-      )}
+        )}
+      </div>
 
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                'p-2 rounded-lg',
-                agent.is_active ? 'bg-primary-500/10' : 'bg-zinc-800'
-              )}
-            >
-              <Bot
-                className={cn(
-                  'h-5 w-5',
-                  agent.is_active ? 'text-primary-400' : 'text-zinc-500'
-                )}
-              />
-            </div>
-            <div>
-              <h3 className="font-medium text-white">{agent.name}</h3>
-              <p className="text-xs text-zinc-500">{agent.model}</p>
-            </div>
+      {/* Conteúdo principal */}
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Avatar com inicial */}
+          <div
+            className={cn(
+              'flex items-center justify-center w-10 h-10 rounded-xl text-sm font-semibold transition-colors flex-shrink-0',
+              agent.is_active
+                ? 'bg-gradient-to-br from-primary-500/20 to-primary-600/10 text-primary-400'
+                : 'bg-zinc-800 text-zinc-500'
+            )}
+          >
+            {getInitials(agent.name)}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-white truncate">{agent.name}</h3>
+            <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+              {getAgentDescription(agent.system_prompt)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Ações sempre visíveis no footer */}
+      <div
+        className={cn(
+          'flex items-center justify-end gap-1 px-4 py-2 border-t border-zinc-800/50',
+          'bg-zinc-900/30'
+        )}
+      >
+        {!agent.is_default && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSetDefault(agent)}
+                disabled={isUpdating || disabled}
+                className="h-7 text-xs text-zinc-400 hover:text-primary-400"
+              >
+                <Star className="h-3 w-3 mr-1" />
+                Tornar padrão
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Definir como agente principal</TooltipContent>
+          </Tooltip>
+        )}
+
+        <div className="flex-1" />
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit(agent)}
+              disabled={isUpdating || disabled}
+              className="h-7 w-7 text-zinc-400 hover:text-white"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Editar</TooltipContent>
+        </Tooltip>
+
+        {!agent.is_default && (
+          <Tooltip>
+            <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                onClick={() => onDelete(agent)}
                 disabled={isUpdating || disabled}
+                className="h-7 w-7 text-zinc-400 hover:text-red-400"
               >
-                <MoreVertical className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(agent)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Editar
-              </DropdownMenuItem>
-
-              {!agent.is_default && (
-                <DropdownMenuItem onClick={() => onSetDefault(agent)}>
-                  <Star className="h-4 w-4 mr-2" />
-                  Definir como padrão
-                </DropdownMenuItem>
-              )}
-
-              <DropdownMenuItem
-                onClick={() => onToggleActive(agent, !agent.is_active)}
-              >
-                {agent.is_active ? (
-                  <>
-                    <ToggleLeft className="h-4 w-4 mr-2" />
-                    Desativar
-                  </>
-                ) : (
-                  <>
-                    <ToggleRight className="h-4 w-4 mr-2" />
-                    Ativar
-                  </>
-                )}
-              </DropdownMenuItem>
-
-              {!agent.is_default && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDelete(agent)}
-                    className="text-red-400"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-3">
-        {/* System prompt preview */}
-        <div className="bg-zinc-900 rounded-lg p-3">
-          <p className="text-xs text-zinc-400 line-clamp-3">
-            {agent.system_prompt}
-          </p>
-        </div>
-
-        {/* Stats row */}
-        <div className="flex items-center gap-4 text-xs text-zinc-500">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Thermometer className="h-3.5 w-3.5" />
-                <span>{agent.temperature}</span>
-              </div>
             </TooltipTrigger>
-            <TooltipContent>Temperature</TooltipContent>
+            <TooltipContent>Excluir</TooltipContent>
           </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <FileText className="h-3.5 w-3.5" />
-                <span>{agent.max_tokens}</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>Max tokens</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                <span>{debounceSeconds}s</span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>Debounce (aguarda antes de responder)</TooltipContent>
-          </Tooltip>
-
-          {!agent.is_active && (
-            <Badge variant="secondary" className="text-[10px] h-4">
-              Inativo
-            </Badge>
-          )}
-        </div>
-      </CardContent>
+        )}
+      </div>
     </Card>
   )
 }

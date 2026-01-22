@@ -411,6 +411,12 @@ import { DashboardSidebar, type NavItem } from '@/components/layout/DashboardSid
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { DevModeToggle } from '@/components/ui/dev-mode-toggle'
 import { useDevMode } from '@/components/providers/DevModeProvider'
+import {
+    OnboardingModal,
+    OnboardingChecklist,
+    ChecklistMiniBadge,
+    useOnboardingProgress,
+} from '@/components/features/onboarding'
 
 export function DashboardShell({
     children,
@@ -451,6 +457,17 @@ export function DashboardShell({
 
     // Dev mode for hiding dev-only nav items
     const { isDevMode } = useDevMode()
+
+    // WhatsApp onboarding progress hook
+    const {
+        progress: onboardingProgress,
+        checklistProgress,
+        shouldShowOnboardingModal,
+        shouldShowChecklist,
+        completeOnboarding,
+        updateChecklistItem,
+        minimizeChecklist,
+    } = useOnboardingProgress()
 
     const { data: authStatus } = useQuery({
         queryKey: ['authStatus'],
@@ -561,6 +578,36 @@ export function DashboardShell({
         (healthStatus.services.database?.status !== 'ok' ||
             healthStatus.services.qstash.status !== 'ok')
 
+    // Determina se WhatsApp está conectado
+    const isWhatsAppConnected = healthStatus?.services.whatsapp?.status === 'ok'
+
+    // Handler para quando o onboarding for completado
+    const handleOnboardingComplete = useCallback(async (credentials: {
+        phoneNumberId: string
+        businessAccountId: string
+        accessToken: string
+    }) => {
+        // Salva as credenciais no servidor
+        await settingsService.save({
+            phoneNumberId: credentials.phoneNumberId,
+            businessAccountId: credentials.businessAccountId,
+            accessToken: credentials.accessToken,
+            isConnected: false, // será atualizado pelo save
+            displayPhoneNumber: '',
+            verifiedName: '',
+            testContact: undefined,
+        })
+
+        // Marca o onboarding como completo e atualiza checklist
+        completeOnboarding()
+        updateChecklistItem('credentials', true)
+        updateChecklistItem('testMessage', true) // O teste foi feito no onboarding
+
+        // Revalida o health status
+        refetchHealth()
+        queryClient.invalidateQueries({ queryKey: ['settings'] })
+    }, [completeOnboarding, updateChecklistItem, refetchHealth, queryClient])
+
     // Memoize navItems to prevent recreation on every render
     // T069: Include dynamic unread badge for inbox
     const navItems = useMemo(() => [
@@ -608,6 +655,11 @@ export function DashboardShell({
             />
         )
     }
+
+    // Determina se deve mostrar o modal de onboarding do WhatsApp
+    // Mostra quando: infra OK + (WhatsApp não conectado OU onboarding não completado)
+    const showWhatsAppOnboarding = !needsSetup &&
+        (!isWhatsAppConnected || shouldShowOnboardingModal)
 
     const isBuilderRoute = pathname?.startsWith('/builder') ?? false
     const isInboxRoute = pathname?.startsWith('/inbox') ?? false
@@ -757,6 +809,7 @@ export function DashboardShell({
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <ChecklistMiniBadge />
                         <ThemeToggle compact />
                         <DevModeToggle />
                         <button className="relative group focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 focus-visible:outline-offset-2 rounded-md p-1" aria-label="Notificações (1 nova)">
@@ -766,8 +819,22 @@ export function DashboardShell({
                     </div>
                 </header>
 
+                {/* WhatsApp Onboarding Modal */}
+                {showWhatsAppOnboarding && (
+                    <OnboardingModal
+                        isConnected={!!isWhatsAppConnected}
+                        onComplete={handleOnboardingComplete}
+                    />
+                )}
+
                 {/* Page Content */}
                 <PageContentShell>
+                    {/* Onboarding Checklist - aparece apenas na home do dashboard */}
+                    {pathname === '/' && shouldShowChecklist && !onboardingProgress.isChecklistMinimized && (
+                        <div className="mb-6">
+                            <OnboardingChecklist onNavigate={(path) => router.push(path)} />
+                        </div>
+                    )}
                     {children}
                 </PageContentShell>
             </div>

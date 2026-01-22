@@ -43,6 +43,11 @@ export function useConversation(conversationId: string | null) {
     },
     enabled: !!conversationId,
     staleTime: CACHE.campaigns,
+    // Stop retrying if conversation not found (404)
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message.includes('404')) return false
+      return failureCount < 3
+    },
     // Real-time
     table: 'inbox_conversations',
     events: ['UPDATE'],

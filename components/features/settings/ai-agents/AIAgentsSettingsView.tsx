@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * T057: AIAgentsSettingsView - Main view for AI agents management
- * Lists agents with create/edit/delete capabilities
+ * AIAgentsSettingsView - Interface simplificada estilo Jobs
+ * Agente padrão em destaque, outros colapsados
  */
 
 import React, { useState, useCallback, useMemo } from 'react'
-import { Bot, Plus, Loader2, AlertCircle, AlertTriangle, Power } from 'lucide-react'
+import { Bot, Plus, Loader2, AlertCircle, ChevronDown, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import {
   AlertDialog,
@@ -20,9 +20,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { AIAgentCard } from './AIAgentCard'
+import { AIAgentHeroCard } from './AIAgentHeroCard'
+import { AIAgentCompactCard } from './AIAgentCompactCard'
 import { AIAgentForm } from './AIAgentForm'
+import { cn } from '@/lib/utils'
 import type { AIAgent } from '@/types'
 import type { CreateAIAgentParams, UpdateAIAgentParams } from '@/services/aiAgentService'
 
@@ -38,7 +45,6 @@ export interface AIAgentsSettingsViewProps {
   isCreating?: boolean
   isUpdating?: boolean
   isDeleting?: boolean
-  // Toggle global
   globalEnabled: boolean
   isGlobalToggleLoading?: boolean
   onGlobalToggle: (enabled: boolean) => Promise<unknown>
@@ -66,6 +72,20 @@ export function AIAgentsSettingsView({
 
   // Delete confirmation state
   const [deleteAgent, setDeleteAgent] = useState<AIAgent | null>(null)
+
+  // Collapsible state
+  const [isOthersOpen, setIsOthersOpen] = useState(false)
+
+  // Separar agente padrão dos outros
+  const defaultAgent = useMemo(
+    () => agents.find((a) => a.is_default),
+    [agents]
+  )
+
+  const otherAgents = useMemo(
+    () => agents.filter((a) => !a.is_default),
+    [agents]
+  )
 
   // Handlers
   const handleOpenCreate = useCallback(() => {
@@ -112,17 +132,6 @@ export function AIAgentsSettingsView({
     [onToggleActive]
   )
 
-  // Check if there's an active default agent
-  const hasActiveDefaultAgent = useMemo(() => {
-    return agents.some((agent) => agent.is_default && agent.is_active)
-  }, [agents])
-
-  // Check if there are agents but none is default
-  const hasAgentsButNoDefault = useMemo(() => {
-    return agents.length > 0 && !agents.some((agent) => agent.is_default)
-  }, [agents])
-
-  // Handler para toggle global
   const handleGlobalToggle = useCallback(
     async (checked: boolean) => {
       await onGlobalToggle(checked)
@@ -132,163 +141,139 @@ export function AIAgentsSettingsView({
 
   return (
     <TooltipProvider>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary-500/10">
-                <Bot className="h-5 w-5 text-primary-400" />
-              </div>
-              <div>
-                <CardTitle>Agentes IA</CardTitle>
-                <CardDescription>
-                  Configure os agentes de atendimento automático
-                </CardDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Toggle global */}
-              <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                <span className="text-sm text-zinc-400">Atendimento IA</span>
-                <Switch
-                  id="ai-agents-global"
-                  checked={globalEnabled}
-                  onCheckedChange={handleGlobalToggle}
-                  disabled={isGlobalToggleLoading}
-                  className="data-[state=checked]:bg-primary-500"
-                />
-              </div>
-              <Button onClick={handleOpenCreate} size="sm" disabled={!globalEnabled}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Agente
-              </Button>
-            </div>
+      <div className="space-y-6">
+        {/* Toggle global - sem header duplicado */}
+        <div className="flex items-center justify-end">
+          <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-zinc-800/50 border border-zinc-700">
+            <span className="text-sm text-zinc-400">Atendimento IA</span>
+            <Switch
+              id="ai-agents-global"
+              checked={globalEnabled}
+              onCheckedChange={handleGlobalToggle}
+              disabled={isGlobalToggleLoading}
+              className="data-[state=checked]:bg-primary-500"
+            />
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent>
-          {/* Loading state */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-12">
+        {/* Loading state */}
+        {isLoading && (
+          <Card className="border-zinc-800">
+            <CardContent className="flex items-center justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Error state */}
-          {error && !isLoading && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <AlertCircle className="h-8 w-8 text-red-400 mb-2" />
+        {/* Error state */}
+        {error && !isLoading && (
+          <Card className="border-zinc-800">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <AlertCircle className="h-8 w-8 text-red-400 mb-3" />
               <p className="text-sm text-zinc-400">Erro ao carregar agentes</p>
-              <p className="text-xs text-zinc-500">{error.message}</p>
-            </div>
-          )}
+              <p className="text-xs text-zinc-500 mt-1">{error.message}</p>
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Banner: Global toggle OFF */}
-          {!isLoading && !error && !globalEnabled && agents.length > 0 && (
-            <div className="mb-4 p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
-              <div className="flex items-start gap-3">
-                <Power className="h-5 w-5 text-zinc-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-zinc-300">
-                    Agentes IA desativados globalmente
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Ative o switch acima para habilitar o atendimento automático por IA.
-                  </p>
-                </div>
+        {/* Empty state - sem agentes */}
+        {!isLoading && !error && agents.length === 0 && (
+          <Card className="border-zinc-800 border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="p-4 rounded-2xl bg-zinc-800/50 mb-4">
+                <Bot className="h-10 w-10 text-zinc-500" />
               </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!isLoading && !error && agents.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              {/* Warning banner - só mostra se toggle global está ON */}
-              {globalEnabled && (
-                <div className="w-full max-w-md mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-amber-400">
-                        Atendimento automático desativado
-                      </p>
-                      <p className="text-xs text-amber-400/70 mt-1">
-                        Sem um agente configurado, todas as conversas serão direcionadas para atendimento humano.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="p-4 rounded-full bg-zinc-800 mb-4">
-                <Bot className="h-8 w-8 text-zinc-500" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-300 mb-1">
-                Nenhum agente configurado
+              <h3 className="text-lg font-medium text-white mb-1">
+                Nenhum assistente configurado
               </h3>
-              <p className="text-sm text-zinc-500 mb-4">
-                Crie seu primeiro agente IA para automatizar o atendimento
+              <p className="text-sm text-zinc-500 mb-6 max-w-sm">
+                Crie seu primeiro assistente IA para começar a automatizar o atendimento aos clientes.
               </p>
               <Button onClick={handleOpenCreate} disabled={!globalEnabled}>
                 <Plus className="h-4 w-4 mr-2" />
-                Criar Primeiro Agente
+                Criar Assistente
               </Button>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Warning: no default agent (só mostra se toggle global está ON) */}
-          {!isLoading && !error && globalEnabled && hasAgentsButNoDefault && (
-            <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-400">
-                    Nenhum agente definido como padrão
+        {/* Conteúdo principal quando há agentes */}
+        {!isLoading && !error && agents.length > 0 && (
+          <div className={cn('space-y-4', !globalEnabled && 'opacity-50 pointer-events-none')}>
+            {/* Hero Card - Agente Principal */}
+            {defaultAgent ? (
+              <AIAgentHeroCard
+                agent={defaultAgent}
+                onEdit={handleOpenEdit}
+                onToggleActive={handleToggleActive}
+                isUpdating={isUpdating}
+                disabled={!globalEnabled}
+              />
+            ) : (
+              // Sem agente padrão definido
+              <Card className="border-zinc-800 border-dashed bg-zinc-900/50">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <p className="text-sm text-zinc-400 mb-4">
+                    Nenhum agente definido como principal
                   </p>
-                  <p className="text-xs text-amber-400/70 mt-1">
-                    Defina um agente como padrão para que ele seja usado automaticamente em novas conversas.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+                  {otherAgents.length > 0 && (
+                    <p className="text-xs text-zinc-500">
+                      Defina um dos agentes abaixo como principal
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Warning: default agent is inactive (só mostra se toggle global está ON) */}
-          {!isLoading && !error && globalEnabled && agents.length > 0 && !hasActiveDefaultAgent && !hasAgentsButNoDefault && (
-            <div className="mb-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-400">
-                    Agente padrão está desativado
-                  </p>
-                  <p className="text-xs text-amber-400/70 mt-1">
-                    Ative o agente padrão ou defina outro como padrão para habilitar o atendimento automático.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+            {/* Outros Agentes - Seção Colapsável */}
+            {otherAgents.length > 0 && (
+              <Collapsible open={isOthersOpen} onOpenChange={setIsOthersOpen}>
+                <CollapsibleTrigger asChild>
+                  <button className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:bg-zinc-800/50 transition-colors group">
+                    <span className="text-sm text-zinc-400">
+                      Outros agentes ({otherAgents.length})
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-zinc-500 transition-transform',
+                        isOthersOpen && 'rotate-180'
+                      )}
+                    />
+                  </button>
+                </CollapsibleTrigger>
 
-          {/* Agents grid */}
-          {!isLoading && !error && agents.length > 0 && (
-            <div className={`grid gap-4 sm:grid-cols-2 ${!globalEnabled ? 'opacity-60' : ''}`}>
-              {agents.map((agent) => (
-                <AIAgentCard
-                  key={agent.id}
-                  agent={agent}
-                  onEdit={handleOpenEdit}
-                  onDelete={setDeleteAgent}
-                  onSetDefault={handleSetDefault}
-                  onToggleActive={handleToggleActive}
-                  isUpdating={isUpdating}
-                  disabled={!globalEnabled}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <CollapsibleContent className="mt-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {otherAgents.map((agent) => (
+                      <AIAgentCompactCard
+                        key={agent.id}
+                        agent={agent}
+                        onEdit={handleOpenEdit}
+                        onDelete={setDeleteAgent}
+                        onSetDefault={handleSetDefault}
+                        onToggleActive={handleToggleActive}
+                        isUpdating={isUpdating}
+                        disabled={!globalEnabled}
+                      />
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Botão de novo agente */}
+            <Button
+              variant="outline"
+              onClick={handleOpenCreate}
+              disabled={!globalEnabled}
+              className="w-full border-dashed border-zinc-700 bg-transparent hover:bg-zinc-800/50 text-zinc-400"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo agente
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Create/Edit form */}
       <AIAgentForm

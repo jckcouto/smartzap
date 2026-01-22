@@ -157,30 +157,35 @@ Antes de começar, você precisa de contas nestes serviços:
    - Senha (será usada para login)
 
    **Etapa 2 - Vercel:**
-   - Vá em Vercel → Settings → Tokens
-   - Crie um token e cole no wizard
-   - Selecione o projeto SmartZap
+   - Vá em [vercel.com/account/tokens](https://vercel.com/account/tokens)
+   - Clique em **Create Token**
+   - Dê um nome (ex: "SmartZap Installer")
+   - Cole o token no wizard e selecione o projeto
 
    **Etapa 3 - Supabase:**
-   - Vá em [supabase.com](https://supabase.com/) → New Project
-   - Aguarde a criação (2-3 minutos)
-   - **PAT (Access Token):** Account → Access Tokens → Generate
-   - **Project URL:** Settings → API → Project URL
-   - **Anon Key:** Settings → API → anon public
-   - **Service Role Key:** Settings → API → service_role (secret)
-   - **Senha do DB:** A senha que você definiu ao criar o projeto
+   - Vá em [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
+   - Clique em **Generate new token**
+   - Nome: **smartzap**
+   - Cole o token no wizard
+   - 💡 O projeto será criado automaticamente!
 
    **Etapa 4 - QStash:**
-   - Vá em [upstash.com](https://upstash.com/) → QStash
-   - Copie o `QSTASH_TOKEN`
+   - Crie uma conta no [console.upstash.com](https://console.upstash.com)
+   - Clique em **QStash** no menu lateral
+   - Na aba **Details**, copie o **QSTASH_TOKEN**
+   - Cole no wizard
 
    **Etapa 5 - Redis:**
-   - Vá em [upstash.com](https://upstash.com/) → Redis → Create Database
-   - Copie `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`
+   - No [console.upstash.com/redis](https://console.upstash.com/redis), clique em **Create Database**
+   - Nome: **smartzap** • Região: **São Paulo** (ou mais próxima)
+   - Após criar, vá na aba **REST API**
+   - Copie **UPSTASH_REDIS_REST_URL** e **UPSTASH_REDIS_REST_TOKEN**
+   - Cole ambos no wizard
 
 3. **Confirme e execute**
 
    Após preencher tudo, o wizard vai:
+   - Criar projeto Supabase automaticamente
    - Configurar variáveis de ambiente na Vercel
    - Aplicar migrations no banco
    - Criar usuário administrador

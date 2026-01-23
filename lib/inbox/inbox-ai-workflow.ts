@@ -168,6 +168,8 @@ export async function processInboxAIWorkflow(context: WorkflowContext) {
 
   // Monta a URL do endpoint interno
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+  console.log(`[inbox-ai-workflow] DEBUG - baseUrl=${baseUrl}, NEXT_PUBLIC_APP_URL=${process.env.NEXT_PUBLIC_APP_URL}, VERCEL_URL=${process.env.VERCEL_URL}`)
+
   if (!baseUrl) {
     console.error('[inbox-ai-workflow] NEXT_PUBLIC_APP_URL not configured')
     return { status: 'error', error: 'APP_URL not configured' }
@@ -182,6 +184,8 @@ export async function processInboxAIWorkflow(context: WorkflowContext) {
     console.error('[inbox-ai-workflow] SMARTZAP_API_KEY not configured')
     return { status: 'error', error: 'API_KEY not configured' }
   }
+
+  console.log(`[inbox-ai-workflow] DEBUG - Calling AI endpoint: ${aiEndpointUrl}`)
 
   // Tipo de resposta do endpoint de IA
   type AICallResponse = {

@@ -301,6 +301,55 @@ export default function TemplateProjectDetailsPage() {
         }
     });
 
+    // Edit Item Mutation - Cria um draft manual e redireciona para o editor
+    const editItemMutation = useMutation({
+        mutationFn: async (item: any) => {
+            // 1. Cria um novo draft manual com os dados básicos
+            const draft = await manualDraftsService.create({
+                name: item.name,
+                language: item.language || 'pt_BR',
+                category: item.category || 'UTILITY',
+                parameterFormat: 'positional',
+            });
+
+            // 2. Constrói o spec completo com header, body, footer e buttons
+            const spec = {
+                name: item.name,
+                language: item.language || 'pt_BR',
+                category: item.category || 'UTILITY',
+                parameter_format: 'positional',
+                body: { text: item.content || '' },
+                header: item.header || null,
+                footer: item.footer || null,
+                buttons: item.buttons || [],
+                carousel: null,
+                limited_time_offer: null,
+            };
+
+            // 3. Atualiza o draft com o spec completo
+            await manualDraftsService.update(draft.id, { spec });
+
+            // 4. Remove o item do projeto
+            const response = await fetch(`/api/template-projects/items/${item.id}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) throw new Error('Falha ao remover item do projeto');
+
+            return draft.id;
+        },
+        onSuccess: (draftId) => {
+            queryClient.invalidateQueries({ queryKey: ['template_projects', id] });
+            queryClient.invalidateQueries({ queryKey: ['templates', 'drafts', 'manual'] });
+            toast.success('Abrindo editor de template...');
+            router.push(`/templates/drafts/${draftId}`);
+        },
+        onError: (error: any) => {
+            toast.error('Erro ao abrir editor', {
+                description: error.message || 'Tente novamente'
+            });
+        }
+    });
+
     // Sync Project Mutation
     const syncProjectMutation = useMutation({
         mutationFn: async () => {
@@ -597,18 +646,31 @@ export default function TemplateProjectDetailsPage() {
                                                                 {item.language}
                                                             </span>
                                                             {isDraft && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        if (confirm('Excluir este rascunho?')) {
-                                                                            deleteItemMutation.mutate(item.id);
-                                                                        }
-                                                                    }}
-                                                                    className="p-1 text-zinc-400 hover:text-amber-300 hover:bg-amber-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
-                                                                    title="Excluir rascunho"
-                                                                >
-                                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            editItemMutation.mutate(item);
+                                                                        }}
+                                                                        disabled={editItemMutation.isPending}
+                                                                        className="p-1 text-zinc-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                                                                        title="Editar template"
+                                                                    >
+                                                                        <Pencil className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (confirm('Excluir este rascunho?')) {
+                                                                                deleteItemMutation.mutate(item.id);
+                                                                            }
+                                                                        }}
+                                                                        className="p-1 text-zinc-400 hover:text-amber-300 hover:bg-amber-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                                                        title="Excluir rascunho"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </>
                                                                 )}
                                                             </div>
                                                         </div>

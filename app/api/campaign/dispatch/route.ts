@@ -3,6 +3,7 @@ import { Client } from '@upstash/workflow'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { supabase } from '@/lib/supabase'
 import { templateDb } from '@/lib/supabase-db'
+import { getAdaptiveThrottleConfigWithSource } from '@/lib/whatsapp-adaptive-throttle'
 
 import { precheckContactForTemplate } from '@/lib/whatsapp/template-contract'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
@@ -920,6 +921,13 @@ export async function POST(request: NextRequest) {
     console.log(`[Dispatch] Is localhost: ${isLocalhost}`)
     console.log(`[Dispatch] traceId: ${traceId}`)
 
+    // Ler config de throttle AQUI no dispatch (onde temos acesso garantido ao Supabase)
+    // e passar para o workflow, evitando que o QStash precise acessar o DB
+    const throttleConfigResult = await getAdaptiveThrottleConfigWithSource().catch(() => null)
+    const throttleConfig = throttleConfigResult?.config ?? null
+    const throttleSource = throttleConfigResult?.source ?? 'fallback'
+    console.log(`[Dispatch] Throttle config source: ${throttleSource}`, throttleConfig ? JSON.stringify(throttleConfig) : 'null')
+
     const workflowPayload = {
       campaignId,
       traceId,
@@ -936,6 +944,8 @@ export async function POST(request: NextRequest) {
       },
       phoneNumberId,
       accessToken,
+      // Config de throttle passada do dispatch para evitar dependência de DB no QStash
+      throttleConfig,
     }
 
     const shouldBypassQstash = isLocalhost || (isDev && !process.env.QSTASH_TOKEN)

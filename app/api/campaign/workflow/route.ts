@@ -288,6 +288,18 @@ interface CampaignWorkflowInput {
   phoneNumberId: string
   accessToken: string
   isResend?: boolean
+  // Config de throttle passada do dispatch (evita dependência de DB no QStash)
+  throttleConfig?: {
+    enabled: boolean
+    sendConcurrency: number
+    batchSize: number
+    startMps: number
+    maxMps: number
+    minMps: number
+    cooldownSec: number
+    minIncreaseGapSec: number
+    sendFloorDelayMs: number
+  } | null
 }
 
 async function claimPendingForSend(
@@ -495,7 +507,7 @@ async function updateContactStatus(
 // Each step is a separate HTTP request, bypasses Vercel 10s timeout
 const workflowHandler = serve<CampaignWorkflowInput>(
   async (context) => {
-    const { campaignId, templateName, contacts, templateVariables, phoneNumberId, accessToken, templateSnapshot, traceId: incomingTraceId } = context.requestPayload
+    const { campaignId, templateName, contacts, templateVariables, phoneNumberId, accessToken, templateSnapshot, traceId: incomingTraceId, throttleConfig: payloadThrottleConfig } = context.requestPayload
 
     const traceId = (incomingTraceId && String(incomingTraceId).trim().length > 0)
       ? String(incomingTraceId).trim()
@@ -567,10 +579,18 @@ const workflowHandler = serve<CampaignWorkflowInput>(
       return
     }
 
-    // Step 2: Preparar batches (busca config de throttle)
+    // Step 2: Preparar batches (usa config do payload ou fallback para DB)
     // IMPORTANTE: Chamadas assíncronas devem estar dentro de context.run()
     const { batches, BATCH_SIZE, cfgForBatching } = await context.run('prepare-batches', async () => {
-      const cfg = await getAdaptiveThrottleConfigWithSource().catch(() => null)
+      // Prioridade: config do payload (passada pelo dispatch) > DB > env > default
+      let cfg: Awaited<ReturnType<typeof getAdaptiveThrottleConfigWithSource>> | null = null
+      if (payloadThrottleConfig) {
+        cfg = { config: payloadThrottleConfig, source: 'db' as const, rawPresent: true }
+        console.log('[Workflow] Using throttle config from dispatch payload')
+      } else {
+        cfg = await getAdaptiveThrottleConfigWithSource().catch(() => null)
+        console.log(`[Workflow] Throttle config from ${cfg?.source ?? 'fallback'}`)
+      }
       const rawBatchSize = Number(cfg?.config?.batchSize ?? process.env.WHATSAPP_WORKFLOW_BATCH_SIZE ?? '10')
       const batchSize = Number.isFinite(rawBatchSize)
         ? Math.max(1, Math.min(200, Math.floor(rawBatchSize)))
@@ -581,7 +601,7 @@ const workflowHandler = serve<CampaignWorkflowInput>(
         contactBatches.push(contacts.slice(i, i + batchSize))
       }
 
-      console.log(`📦 Prepared ${contactBatches.length} batches of up to ${batchSize} contacts each`)
+      console.log(`📦 Prepared ${contactBatches.length} batches of up to ${batchSize} contacts each (batchSize=${batchSize})`)
       return { batches: contactBatches, BATCH_SIZE: batchSize, cfgForBatching: cfg }
     })
 
@@ -617,8 +637,8 @@ const workflowHandler = serve<CampaignWorkflowInput>(
 
         // Adaptive throttle (global throughput) — state compartilhado via settings.
         // Ajuda a "pisar no acelerador" sem ficar batendo em 130429 o tempo todo.
-        const adaptiveCfg = await getAdaptiveThrottleConfigWithSource().catch(() => null)
-        const adaptiveConfig = adaptiveCfg?.config || null
+        // Usa a config que já foi carregada no prepare-batches (evita nova chamada ao DB)
+        const adaptiveConfig = cfgForBatching?.config || null
         const adaptiveEnabled = Boolean(adaptiveConfig?.enabled)
         let sawThroughput429 = false
         let limiter: ReturnType<typeof createRateLimiter> | null = null
@@ -2405,8 +2425,8 @@ const workflowHandler = serve<CampaignWorkflowInput>(
 
       // Persistência best-effort do "run" (baseline / evolução).
       try {
-        const adaptiveCfg = await getAdaptiveThrottleConfigWithSource().catch(() => null)
-        const adaptiveConfig = adaptiveCfg?.config || null
+        // Usa a config que já foi carregada no prepare-batches
+        const adaptiveConfig = cfgForBatching?.config || null
         const rawConcurrency = Number(adaptiveConfig?.sendConcurrency ?? process.env.WHATSAPP_SEND_CONCURRENCY ?? '1')
         const concurrency = Number.isFinite(rawConcurrency)
           ? Math.max(1, Math.min(50, Math.floor(rawConcurrency)))

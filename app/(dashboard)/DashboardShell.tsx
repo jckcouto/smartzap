@@ -41,7 +41,6 @@ import {
     type OnboardingStep,
 } from '@/components/features/onboarding'
 import {
-    EmptyStateBanner,
     SuccessBanner,
     CredentialsModal,
     GuidedTour,
@@ -622,20 +621,7 @@ export function DashboardShell({
 
                 {/* Page Content */}
                 <PageContentShell>
-                    {/* NOVO: EmptyStateBanner - mostra quando WhatsApp não conectado (Dashboard-First) */}
-                    {/* Guard: só mostra após health E onboarding status carregarem para evitar flash */}
-                    {pathname === '/' &&
-                     healthStatus !== undefined &&
-                     !isOnboardingStatusLoading &&
-                     !isWhatsAppConnected &&
-                     isOnboardingCompletedInDb && (
-                        <EmptyStateBanner
-                            onConnect={() => setShowCredentialsModal(true)}
-                            onHelp={() => setForceModalStep('requirements')}
-                        />
-                    )}
-
-                    {/* NOVO: SuccessBanner - mostra após conectar WhatsApp */}
+                    {/* SuccessBanner - mostra após conectar WhatsApp */}
                     {pathname === '/' && showSuccessBanner && isWhatsAppConnected && (
                         <SuccessBanner
                             onSendTest={() => {

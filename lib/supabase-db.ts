@@ -1456,8 +1456,20 @@ export const templateDb = {
         if (error) throw error
 
         return (data || []).map(row => {
-            const components = normalizeTemplateComponents(row.components)
+            let components = normalizeTemplateComponents(row.components)
             const bodyText = getTemplateBodyText(components, row.components)
+
+            // Injetar header_location no component HEADER se existir
+            const headerLocation = (row as any).header_location
+            if (headerLocation && typeof headerLocation === 'object') {
+                components = components.map(c => {
+                    if (c.type === 'HEADER' && c.format === 'LOCATION') {
+                        return { ...c, location: headerLocation }
+                    }
+                    return c
+                })
+            }
+
             return {
                 id: row.id,
                 name: row.name,
@@ -1488,8 +1500,20 @@ export const templateDb = {
 
         if (error || !data) return undefined
 
-        const components = normalizeTemplateComponents(data.components)
+        let components = normalizeTemplateComponents(data.components)
         const bodyText = getTemplateBodyText(components, data.components)
+
+        // Injetar header_location no component HEADER se existir
+        const headerLocation = (data as any).header_location
+        if (headerLocation && typeof headerLocation === 'object') {
+            components = components.map(c => {
+                if (c.type === 'HEADER' && c.format === 'LOCATION') {
+                    return { ...c, location: headerLocation }
+                }
+                return c
+            })
+        }
+
         return {
             id: data.id,
             name: data.name,

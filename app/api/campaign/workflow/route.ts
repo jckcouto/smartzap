@@ -460,16 +460,18 @@ async function updateContactStatus(
     }
 
     if (status === 'skipped') {
+      const skipReason = opts?.skipReason || opts?.error || null
       update.skipped_at = now
       update.skip_code = opts?.skipCode || null
-      update.skip_reason = opts?.skipReason || opts?.error || null
-      update.error = null
+      update.skip_reason = skipReason
+      // CHECK constraint exige: failure_reason IS NOT NULL OR error IS NOT NULL quando status='skipped'
+      update.error = skipReason
       update.message_id = null
 
       update.sent_at = null
       update.failed_at = null
       update.failure_code = null
-      update.failure_reason = null
+      update.failure_reason = skipReason
       update.failure_title = null
       update.failure_details = null
       update.failure_fbtrace_id = null
@@ -2093,15 +2095,17 @@ const workflowHandler = serve<CampaignWorkflowInput>(
                 base.failure_href = null
               } else if (op.status === 'skipped') {
                 const now = new Date().toISOString()
+                const skipReason = op.opts?.skipReason || op.opts?.error || null
                 base.skipped_at = now
                 base.sent_at = null
                 base.failed_at = null
                 base.message_id = null
-                base.error = null
+                // CHECK constraint exige: failure_reason IS NOT NULL OR error IS NOT NULL quando status='skipped'
+                base.error = skipReason
                 base.skip_code = op.opts?.skipCode || null
-                base.skip_reason = op.opts?.skipReason || op.opts?.error || null
+                base.skip_reason = skipReason
                 base.failure_code = null
-                base.failure_reason = null
+                base.failure_reason = skipReason
                 base.failure_title = null
                 base.failure_details = null
                 base.failure_fbtrace_id = null

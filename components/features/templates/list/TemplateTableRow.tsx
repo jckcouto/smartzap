@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { FileText, Check, Loader2, Trash2, Eye, Pencil, Send, Megaphone, Copy } from 'lucide-react';
+import { FileText, Check, Loader2, Trash2, Eye, Send, Megaphone, Copy } from 'lucide-react';
 import { Template } from '../../../../types';
 import { StatusBadge } from './StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -188,12 +188,6 @@ const TemplateTableRowComponent: React.FC<TemplateTableRowProps> = ({
         <div className="flex items-center justify-end gap-1">
           {isManualDraft ? (
             <>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={draftHref} title="Continuar edicao">
-                  <Pencil size={14} />
-                  Continuar
-                </Link>
-              </Button>
               <Button
                 variant="brand"
                 size="sm"

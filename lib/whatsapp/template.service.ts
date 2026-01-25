@@ -186,6 +186,12 @@ export class TemplateService {
                 if (input.header.example?.header_handle && input.header.example.header_handle.length > 0) {
                     headerComponent.example = { header_handle: input.header.example.header_handle }
                 }
+            } else if (input.header.format === 'LOCATION') {
+                // LOCATION headers na criação do template NÃO incluem dados de localização.
+                // Os dados (latitude, longitude, etc.) são passados apenas no momento do ENVIO da mensagem.
+                // A Meta exige apenas { type: "HEADER", format: "LOCATION" } na criação.
+                // Os dados de localização são salvos localmente na coluna header_location
+                // e usados no buildMetaTemplatePayload (template-contract.ts) ao enviar.
             }
             components.push(headerComponent)
         }

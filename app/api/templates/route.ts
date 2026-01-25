@@ -15,6 +15,13 @@ interface MetaTemplateComponent {
   format?: string
   text?: string
   buttons?: Array<{ type: string; text: string; url?: string; phone_number?: string }>
+  // Para LOCATION headers
+  location?: {
+    latitude: string
+    longitude: string
+    name?: string
+    address?: string
+  }
 }
 
 interface MetaTemplate {

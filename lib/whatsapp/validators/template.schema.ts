@@ -120,6 +120,13 @@ export const HeaderSchema = z.object({
         })).optional(),
         header_handle: z.array(z.string()).optional(), // ID da mídia uploadada
     }).optional().nullable(),
+    // Para LOCATION
+    location: z.object({
+        latitude: z.string().min(1, 'Latitude obrigatória'),
+        longitude: z.string().min(1, 'Longitude obrigatória'),
+        name: z.string().optional(),
+        address: z.string().optional(),
+    }).optional().nullable(),
 }).optional().nullable();
 
 // =========================
@@ -525,6 +532,11 @@ export const CreateTemplateSchema = z.object({
             message: 'Cabeçalho de texto exige um valor.'
         })
     }
+
+    // LOCATION header: latitude e longitude são salvos localmente (coluna header_location),
+    // mas NÃO são enviados na criação do template para a Meta.
+    // A validação de location é feita no momento do ENVIO (buildMetaTemplatePayload),
+    // não na criação do template.
 
     // Media header: exige header_handle.
     if (data.header?.format && ['IMAGE', 'VIDEO', 'GIF', 'DOCUMENT'].includes(String(data.header.format))) {

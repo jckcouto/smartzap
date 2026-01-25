@@ -307,16 +307,6 @@ export function StepContent({
                     🔒 Opções de mídia requerem o <span className="font-medium">ID do Aplicativo</span>. Configure em Configurações → API.
                   </p>
                 ) : null}
-                {headerType === 'GIF' ? (
-                  <p className="text-xs text-[var(--ds-text-muted)]">
-                    GIF é um vídeo curto (mp4, max 3.5MB) que toca em loop sem controles. Diferente de Vídeo, que tem play/pause.
-                  </p>
-                ) : null}
-                {!isMarketingCategory && hasMetaAppId ? (
-                  <p className="text-xs text-[var(--ds-text-muted)]">
-                    Dica: a opção GIF fica disponível apenas em templates MARKETING.
-                  </p>
-                ) : null}
               </div>
             </div>
           )}

@@ -23,6 +23,7 @@ interface ProvisioningViewProps {
 export function ProvisioningView({ data, progress, title, subtitle, onProgress, onReset }: ProvisioningViewProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasStartedRef = useRef(false);
+  const safeProgress = Math.min(100, Math.max(0, progress));
 
   const startProvisioning = useCallback(async () => {
     if (hasStartedRef.current) {
@@ -115,6 +116,9 @@ export function ProvisioningView({ data, progress, title, subtitle, onProgress, 
   useEffect(() => {
     startProvisioning();
     // Intentionally run only on mount - startProvisioning is stable
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, []);
 
   return (
@@ -188,7 +192,7 @@ export function ProvisioningView({ data, progress, title, subtitle, onProgress, 
               )}
               initial={{ width: '0%' }}
               animate={{
-                width: `${progress}%`,
+                width: `${safeProgress}%`,
                 backgroundPosition: ['0% 0%', '100% 0%'],
               }}
               transition={{
@@ -199,7 +203,7 @@ export function ProvisioningView({ data, progress, title, subtitle, onProgress, 
           </div>
           <div className="flex justify-between mt-2 text-xs font-mono text-[var(--br-dust-gray)]">
             <span>INCUBAÇÃO</span>
-            <span className="text-[var(--br-neon-cyan)]">{progress}%</span>
+            <span className="text-[var(--br-neon-cyan)]">{safeProgress}%</span>
           </div>
         </div>
 

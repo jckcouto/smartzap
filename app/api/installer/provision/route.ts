@@ -178,7 +178,22 @@ async function validateQStashToken(token: string): Promise<void> {
 }
 
 async function validateRedisCredentials(url: string, token: string): Promise<void> {
-  const res = await fetch(`${url}/ping`, {
+  let normalizedUrl = url.trim();
+  try {
+    const parsed = new URL(normalizedUrl);
+    if (parsed.protocol !== 'https:') {
+      throw new Error('URL do Redis deve usar HTTPS');
+    }
+    if (!parsed.hostname.endsWith('.upstash.io')) {
+      throw new Error('URL do Redis deve ser do Upstash (*.upstash.io)');
+    }
+    normalizedUrl = parsed.origin;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'URL do Redis inválida';
+    throw new Error(message);
+  }
+
+  const res = await fetch(`${normalizedUrl}/ping`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -459,21 +474,20 @@ export async function POST(req: Request) {
 
       // Resolve DB URL
       if (supabaseProject.dbPass) {
-        console.log('[provision] 📍 Step 5/12: Preparando DB URL direta...');
-        dbUrl = buildDirectDbUrl(supabaseProject.projectRef, supabaseProject.dbPass);
-        console.log('[provision] ✅ Step 5/12: DB URL direta pronta', { host: `db.${supabaseProject.projectRef}.supabase.co` });
-
-        console.log('[provision] 📍 Step 5/12: Resolving DB URL (pooler fallback)...');
+        console.log('[provision] 📍 Step 5/12: Resolving DB URL (shared pooler primary)...');
         const poolerResult = await resolveSupabaseDbUrl({
           projectRef: supabaseProject.projectRef,
           accessToken: supabase.pat,
         });
 
         if (poolerResult.ok) {
-          fallbackDbUrl = poolerResult.dbUrl;
+          dbUrl = poolerResult.dbUrl;
+          fallbackDbUrl = buildDirectDbUrl(supabaseProject.projectRef, supabaseProject.dbPass);
           console.log('[provision] ✅ Step 5/12: DB URL pooler resolvida', { host: poolerResult.host });
+          console.log('[provision] ✅ Step 5/12: DB URL direta pronta (fallback)', { host: `db.${supabaseProject.projectRef}.supabase.co` });
         } else {
-          console.warn('[provision] ⚠️ Step 5/12: Pooler indisponível - seguindo com conexão direta');
+          console.warn('[provision] ⚠️ Step 5/12: Pooler indisponível - usando conexão direta');
+          dbUrl = buildDirectDbUrl(supabaseProject.projectRef, supabaseProject.dbPass);
         }
       } else {
         console.log('[provision] 📍 Step 5/12: dbPass ausente, usando pooler...');

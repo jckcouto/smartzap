@@ -187,10 +187,11 @@ export function SupabaseForm({ data, onComplete, onBack, showBack }: FormProps) 
   // PAUSE PROJECT
   // ---------------------------------------------------------------------------
 
-  const pollProjectStatus = async (projectRef: string): Promise<boolean> => {
+  const pollProjectStatus = async (projectRef: string): Promise<{ ok: boolean; error?: string }> => {
     const maxMs = 180_000; // 3 min
     const intervalMs = 2000;
     const startTime = Date.now();
+    let lastError: string | null = null;
 
     while (Date.now() - startTime < maxMs) {
       try {
@@ -203,21 +204,31 @@ export function SupabaseForm({ data, onComplete, onBack, showBack }: FormProps) 
           }),
         });
 
+        if (!res.ok) {
+          const errorBody = await res.json().catch(() => ({}));
+          lastError = errorBody?.error || `HTTP ${res.status}`;
+          await new Promise((r) => setTimeout(r, intervalMs));
+          continue;
+        }
+
         const data = await res.json();
         const status = String(data?.status || '').toUpperCase();
 
         // INACTIVE ou PAUSED significa que foi pausado
         if (status === 'INACTIVE' || status.includes('PAUSED') || status.startsWith('INACTIVE')) {
-          return true;
+          return { ok: true };
         }
-      } catch {
-        // Ignora erros transitórios
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : 'Erro desconhecido';
       }
 
       await new Promise((r) => setTimeout(r, intervalMs));
     }
 
-    return false;
+    return {
+      ok: false,
+      error: lastError ? `Timeout aguardando projeto pausar (${lastError})` : 'Timeout aguardando projeto pausar',
+    };
   };
 
   const handlePauseProject = async (projectRef: string) => {
@@ -242,10 +253,9 @@ export function SupabaseForm({ data, onComplete, onBack, showBack }: FormProps) 
       }
 
       // 2. Poll até pausar
-      const paused = await pollProjectStatus(projectRef);
-
-      if (!paused) {
-        throw new Error('Timeout aguardando projeto pausar. Tente novamente.');
+      const pauseResult = await pollProjectStatus(projectRef);
+      if (!pauseResult.ok) {
+        throw new Error(pauseResult.error || 'Timeout aguardando projeto pausar. Tente novamente.');
       }
 
       // 3. Rerun preflight

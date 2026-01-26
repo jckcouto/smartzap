@@ -537,18 +537,28 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================================================
-    // GENERATE BATCH TITLE
+    // GENERATE BATCH TITLE (com timeout de 5s para não travar)
     // ========================================================================
     let batchTitle = 'Submissão em Lote'
     try {
-      const titleResult = await generateText({
+      const titlePromise = generateText({
         prompt: `Resuma em NO MÁXIMO 4 palavras (sem pontuação) o tema: "${userPrompt.substring(0, 200)}". Retorne APENAS as palavras.`,
       })
+
+      // Timeout de 5 segundos - se demorar mais, usa fallback
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Title generation timeout')), 5000)
+      )
+
+      const titleResult = await Promise.race([titlePromise, timeoutPromise])
       batchTitle = titleResult.text.trim()
         .replace(/["""''\.]/g, '')
         .substring(0, 40) || 'Submissão em Lote'
-    } catch {
-      batchTitle = userPrompt.substring(0, 30).trim() + '...'
+    } catch (titleError) {
+      console.log('[GENERATE] Title generation failed/timeout, using fallback:', titleError instanceof Error ? titleError.message : 'unknown')
+      // Fallback: extrai primeiras palavras do prompt
+      const words = userPrompt.split(/\s+/).slice(0, 4).join(' ')
+      batchTitle = words.length > 30 ? words.substring(0, 30) + '...' : words
     }
 
     return NextResponse.json({

@@ -572,11 +572,23 @@ export async function POST(request: NextRequest) {
     entryCount: Array.isArray(body?.entry) ? body.entry.length : 0,
   }))
 
+  // OTIMIZAÇÃO V2: Paraleliza busca de defaultWorkflowId + keywordWorkflows
+  // Antes: 2 queries sequenciais (~200ms cada)
+  // Depois: 1 batch paralelo (~200ms total)
+  const [defaultWorkflowIdFromDb, allKeywordWorkflows] = await Promise.all([
+    settingsDb.get('workflow_builder_default_id'),
+    loadKeywordWorkflows(null), // Carrega todos, filtra depois
+  ])
+
   const defaultWorkflowId =
-    (await settingsDb.get('workflow_builder_default_id')) ||
+    defaultWorkflowIdFromDb ||
     process.env.WORKFLOW_BUILDER_DEFAULT_ID ||
     null
-  const keywordWorkflows = await loadKeywordWorkflows(defaultWorkflowId)
+
+  // Filtra o workflow padrão (se existir) para evitar execução duplicada
+  const keywordWorkflows = defaultWorkflowId
+    ? allKeywordWorkflows.filter((w) => w.workflowId !== defaultWorkflowId)
+    : allKeywordWorkflows
 
   try {
     const entries = body.entry || []

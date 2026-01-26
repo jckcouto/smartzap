@@ -83,13 +83,13 @@ async function getHeliconeConfig(): Promise<{ apiKey: string } | null> {
  * @param gatewayConfig Configuração do Gateway
  * @param provider Provider original (google, openai, anthropic)
  * @param modelId ID do modelo (ex: gemini-2.5-flash)
- * @param providerApiKey API key do provider (para BYOK)
+ * @param allApiKeys Todas as API keys disponíveis (para BYOK com fallbacks)
  */
 async function createGatewayModel(
   gatewayConfig: AiGatewayConfig,
   provider: AIProvider,
   modelId: string,
-  providerApiKey?: string
+  allApiKeys: Partial<Record<AIProvider, string>>
 ): Promise<LanguageModel> {
   // OIDC token já foi verificado antes de chamar esta função
   const oidcToken = process.env.VERCEL_OIDC_TOKEN!
@@ -104,15 +104,23 @@ async function createGatewayModel(
     Authorization: `Bearer ${oidcToken}`,
   }
 
-  // BYOK: passa a chave do provider se configurado
-  if (gatewayConfig.useBYOK && providerApiKey) {
-    // O Gateway aceita chaves BYOK via headers específicos por provider
+  // BYOK: passa TODAS as chaves disponíveis para habilitar fallbacks
+  if (gatewayConfig.useBYOK) {
     const byokHeaderMap: Record<AIProvider, string> = {
       google: 'x-google-api-key',
       openai: 'x-openai-api-key',
       anthropic: 'x-anthropic-api-key',
     }
-    headers[byokHeaderMap[provider]] = providerApiKey
+
+    // Passa todas as chaves que temos configuradas
+    for (const [prov, key] of Object.entries(allApiKeys)) {
+      if (key) {
+        headers[byokHeaderMap[prov as AIProvider]] = key
+      }
+    }
+
+    const configuredProviders = Object.keys(allApiKeys).filter(p => allApiKeys[p as AIProvider])
+    console.log(`[provider-factory] BYOK enabled for providers: ${configuredProviders.join(', ')}`)
   }
 
   const openai = createOpenAI({
@@ -190,6 +198,51 @@ export async function getProviderApiKey(provider: AIProvider): Promise<string | 
   return process.env[config.envVar] || null
 }
 
+/**
+ * Busca todas as API keys de todos os providers em uma única query.
+ * Usado pelo AI Gateway para habilitar fallbacks entre providers.
+ */
+export async function getAllProviderApiKeys(): Promise<Partial<Record<AIProvider, string>>> {
+  const result: Partial<Record<AIProvider, string>> = {}
+  const allSettingKeys = Object.values(PROVIDER_API_KEY_MAP).map(c => c.settingKey)
+
+  const supabase = getSupabaseAdmin()
+  if (supabase) {
+    const { data } = await supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', allSettingKeys)
+
+    if (data) {
+      // Mapeia setting key de volta para provider
+      const settingToProvider: Record<string, AIProvider> = {
+        gemini_api_key: 'google',
+        openai_api_key: 'openai',
+        anthropic_api_key: 'anthropic',
+      }
+
+      for (const setting of data) {
+        const provider = settingToProvider[setting.key]
+        if (provider && setting.value) {
+          result[provider] = setting.value
+        }
+      }
+    }
+  }
+
+  // Fallback para variáveis de ambiente (para keys não encontradas no DB)
+  for (const [provider, config] of Object.entries(PROVIDER_API_KEY_MAP)) {
+    if (!result[provider as AIProvider]) {
+      const envValue = process.env[config.envVar]
+      if (envValue) {
+        result[provider as AIProvider] = envValue
+      }
+    }
+  }
+
+  return result
+}
+
 // =============================================================================
 // Model Factory
 // =============================================================================
@@ -210,13 +263,6 @@ export async function createLanguageModel(
   apiKeyOverride?: string
 ): Promise<{ model: LanguageModel; provider: AIProvider; apiKey: string; gatewayConfig?: AiGatewayConfig }> {
   const provider = getProviderFromModel(modelId)
-  const apiKey = apiKeyOverride || (await getProviderApiKey(provider))
-
-  if (!apiKey) {
-    throw new Error(
-      `API key não configurada para ${provider}. Configure em Configurações > IA.`
-    )
-  }
 
   // Verifica se AI Gateway está habilitado
   const gatewayConfig = await getAiGatewayConfig()
@@ -230,9 +276,33 @@ export async function createLanguageModel(
   }
 
   if (canUseGateway) {
-    // Usa AI Gateway para routing inteligente
-    const model = await createGatewayModel(gatewayConfig, provider, modelId, apiKey)
-    return { model, provider, apiKey, gatewayConfig }
+    // Busca TODAS as API keys para habilitar fallbacks no Gateway
+    const allApiKeys = await getAllProviderApiKeys()
+    const primaryApiKey = apiKeyOverride || allApiKeys[provider]
+
+    if (!primaryApiKey) {
+      throw new Error(
+        `API key não configurada para ${provider}. Configure em Configurações > IA.`
+      )
+    }
+
+    // Se tiver override, usa ele como chave do provider primário
+    if (apiKeyOverride) {
+      allApiKeys[provider] = apiKeyOverride
+    }
+
+    // Usa AI Gateway para routing inteligente com fallbacks
+    const model = await createGatewayModel(gatewayConfig, provider, modelId, allApiKeys)
+    return { model, provider, apiKey: primaryApiKey, gatewayConfig }
+  }
+
+  // Conexão direta: busca apenas a chave do provider primário
+  const apiKey = apiKeyOverride || (await getProviderApiKey(provider))
+
+  if (!apiKey) {
+    throw new Error(
+      `API key não configurada para ${provider}. Configure em Configurações > IA.`
+    )
   }
 
   // Fallback: Helicone ou conexão direta

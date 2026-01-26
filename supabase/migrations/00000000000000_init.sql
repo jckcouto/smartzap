@@ -704,6 +704,163 @@ BEGIN
 END;
 $$;
 
+-- =============================================================================
+-- RPC: Processa mensagem inbound de forma atômica
+-- Reduz de 4-5 queries para 1 RPC call
+-- =============================================================================
+CREATE FUNCTION public.process_inbound_message(
+  p_phone TEXT,
+  p_content TEXT,
+  p_whatsapp_message_id TEXT DEFAULT NULL,
+  p_message_type TEXT DEFAULT 'text',
+  p_media_url TEXT DEFAULT NULL,
+  p_payload JSONB DEFAULT NULL,
+  p_contact_id TEXT DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_conversation_id UUID;
+  v_message_id UUID;
+  v_conversation_status TEXT;
+  v_conversation_mode TEXT;
+  v_ai_agent_id UUID;
+  v_human_mode_expires_at TIMESTAMPTZ;
+  v_automation_paused_until TIMESTAMPTZ;
+  v_is_new_conversation BOOLEAN := FALSE;
+  v_message_preview TEXT;
+BEGIN
+  -- Trunca preview para 100 chars
+  v_message_preview := CASE
+    WHEN LENGTH(p_content) > 100 THEN SUBSTRING(p_content, 1, 100) || '...'
+    ELSE p_content
+  END;
+
+  -- 1. Busca conversa existente pelo telefone (usa índice idx_inbox_conversations_phone)
+  SELECT
+    id, status, mode, ai_agent_id, human_mode_expires_at, automation_paused_until
+  INTO
+    v_conversation_id, v_conversation_status, v_conversation_mode,
+    v_ai_agent_id, v_human_mode_expires_at, v_automation_paused_until
+  FROM inbox_conversations
+  WHERE phone = p_phone
+  ORDER BY last_message_at DESC NULLS LAST
+  LIMIT 1;
+
+  -- 2. Se não existe, cria nova conversa
+  IF v_conversation_id IS NULL THEN
+    INSERT INTO inbox_conversations (
+      phone,
+      contact_id,
+      mode,
+      status,
+      total_messages,
+      unread_count,
+      last_message_at,
+      last_message_preview
+    ) VALUES (
+      p_phone,
+      p_contact_id,
+      'bot',
+      'open',
+      1,
+      1,
+      NOW(),
+      v_message_preview
+    )
+    RETURNING id, mode, ai_agent_id, human_mode_expires_at, automation_paused_until
+    INTO v_conversation_id, v_conversation_mode, v_ai_agent_id,
+         v_human_mode_expires_at, v_automation_paused_until;
+
+    v_is_new_conversation := TRUE;
+    v_conversation_status := 'open';
+  ELSE
+    -- 3. Se existe, atualiza contadores e reabre se fechada
+    UPDATE inbox_conversations
+    SET
+      total_messages = total_messages + 1,
+      unread_count = unread_count + 1,
+      last_message_at = NOW(),
+      last_message_preview = v_message_preview,
+      status = CASE WHEN status = 'closed' THEN 'open' ELSE status END,
+      updated_at = NOW()
+    WHERE id = v_conversation_id
+    RETURNING status INTO v_conversation_status;
+  END IF;
+
+  -- 4. Cria mensagem
+  INSERT INTO inbox_messages (
+    conversation_id,
+    direction,
+    content,
+    message_type,
+    whatsapp_message_id,
+    media_url,
+    delivery_status,
+    payload
+  ) VALUES (
+    v_conversation_id,
+    'inbound',
+    p_content,
+    p_message_type,
+    p_whatsapp_message_id,
+    p_media_url,
+    'delivered',
+    p_payload
+  )
+  RETURNING id INTO v_message_id;
+
+  -- 5. Retorna resultado completo
+  RETURN json_build_object(
+    'conversation_id', v_conversation_id,
+    'message_id', v_message_id,
+    'is_new_conversation', v_is_new_conversation,
+    'conversation_status', v_conversation_status,
+    'conversation_mode', v_conversation_mode,
+    'ai_agent_id', v_ai_agent_id,
+    'human_mode_expires_at', v_human_mode_expires_at,
+    'automation_paused_until', v_automation_paused_until
+  );
+END;
+$$;
+
+COMMENT ON FUNCTION public.process_inbound_message IS
+'Processa mensagem inbound de forma atômica: busca/cria conversa + cria mensagem + atualiza contadores. Reduz 4-5 queries para 1 chamada.';
+
+-- =============================================================================
+-- RPC: Busca configurações do agente de forma otimizada
+-- =============================================================================
+CREATE FUNCTION public.get_agent_config(
+  p_conversation_id UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_result JSON;
+BEGIN
+  SELECT json_build_object(
+    'ai_agent_id', c.ai_agent_id,
+    'debounce_ms', COALESCE(a.debounce_ms, 3000),
+    'agent_name', a.name
+  )
+  INTO v_result
+  FROM inbox_conversations c
+  LEFT JOIN ai_agents a ON a.id = c.ai_agent_id
+  WHERE c.id = p_conversation_id;
+
+  RETURN v_result;
+END;
+$$;
+
+COMMENT ON FUNCTION public.get_agent_config IS
+'Busca configuração do agente de IA para uma conversa em uma única query.';
+
 CREATE TABLE public.inbox_labels (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     name text NOT NULL,
@@ -1269,6 +1426,23 @@ CREATE INDEX idx_inbox_conversations_phone_status ON public.inbox_conversations 
 
 CREATE INDEX idx_inbox_conversations_human_mode_expires ON public.inbox_conversations USING btree (human_mode_expires_at) WHERE (mode = 'human' AND human_mode_expires_at IS NOT NULL);
 
+-- Covering Index para busca lightweight (index-only scan)
+-- Inclui todos os campos usados no SELECT da função findConversationByPhoneLightweight
+CREATE INDEX idx_inbox_conversations_phone_covering
+ON inbox_conversations (phone)
+INCLUDE (
+  id,
+  status,
+  mode,
+  ai_agent_id,
+  contact_id,
+  human_mode_expires_at,
+  automation_paused_until,
+  total_messages,
+  unread_count,
+  last_message_at
+);
+
 CREATE INDEX idx_inbox_messages_conversation_id ON public.inbox_messages USING btree (conversation_id);
 
 CREATE INDEX idx_inbox_messages_created_at ON public.inbox_messages USING btree (created_at);
@@ -1455,6 +1629,12 @@ GRANT EXECUTE ON FUNCTION public.decrement_unread_count TO service_role;
 
 GRANT EXECUTE ON FUNCTION public.reset_unread_count TO authenticated;
 GRANT EXECUTE ON FUNCTION public.reset_unread_count TO service_role;
+
+GRANT EXECUTE ON FUNCTION public.process_inbound_message TO authenticated;
+GRANT EXECUTE ON FUNCTION public.process_inbound_message TO service_role;
+
+GRANT EXECUTE ON FUNCTION public.get_agent_config TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_agent_config TO service_role;
 
 -- =============================================================================
 -- REALTIME

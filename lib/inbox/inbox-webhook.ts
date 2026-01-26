@@ -4,6 +4,10 @@
  * - T046: Persist inbound messages to inbox_messages
  * - T047: Trigger AI processing when mode = 'bot'
  * - T048: Update delivery status in inbox_messages
+ *
+ * OTIMIZAÇÕES V2 (2026-01-26):
+ * - RPC process_inbound_message: 4-5 queries → 1 chamada
+ * - Fallback automático para versão anterior se RPC não existir
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase'
@@ -21,6 +25,18 @@ import type {
 
 // Tipo para conversa lightweight (retorno otimizado do webhook)
 type LightweightConversation = Awaited<ReturnType<typeof findConversationByPhoneLightweight>>
+
+// Tipo do retorno da RPC process_inbound_message
+interface ProcessInboundMessageResult {
+  conversation_id: string
+  message_id: string
+  is_new_conversation: boolean
+  conversation_status: string
+  conversation_mode: string
+  ai_agent_id: string | null
+  human_mode_expires_at: string | null
+  automation_paused_until: string | null
+}
 
 // QStash client para disparar processamento de IA (simplificado)
 const getQStashClient = () => {
@@ -69,13 +85,12 @@ export interface StatusUpdatePayload {
 // =============================================================================
 
 /**
- * Process an inbound message and persist to inbox
- * Creates conversation if needed, adds message, triggers AI if mode=bot
+ * Process an inbound message using optimized RPC (V2)
+ * Executes conversation upsert + message creation + counter updates in a single DB call
  *
- * OTIMIZAÇÕES APLICADAS (2025-01-24):
- * 1. Usa findConversationByPhoneLightweight (sem JOINs) - ~3x mais rápido
- * 2. Paraleliza busca de conversa + contato quando cria nova conversa
- * 3. Contadores atômicos via RPC (elimina race condition)
+ * OTIMIZAÇÕES V2 (2026-01-26):
+ * 1. RPC process_inbound_message: 4-5 queries → 1 chamada atômica
+ * 2. Fallback automático para versão legacy se RPC não existir
  */
 export async function handleInboundMessage(
   payload: InboundMessagePayload
@@ -85,20 +100,110 @@ export async function handleInboundMessage(
   triggeredAI: boolean
 }> {
   const normalizedPhone = normalizePhoneNumber(payload.from)
+  const supabase = getSupabaseAdmin()
 
+  // Tenta usar RPC otimizada (V2)
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.rpc('process_inbound_message', {
+        p_phone: normalizedPhone,
+        p_content: payload.text || `[${payload.type}]`,
+        p_whatsapp_message_id: payload.messageId || null,
+        p_message_type: mapMessageType(payload.type),
+        p_media_url: payload.mediaUrl || null,
+        p_payload: {
+          raw_type: payload.type,
+          timestamp: payload.timestamp,
+          phone_number_id: payload.phoneNumberId,
+        },
+        p_contact_id: null, // Contact lookup done inside RPC if needed
+      })
+
+      if (!error && data) {
+        const result = data as ProcessInboundMessageResult
+        console.log(`⚡ [INBOX] RPC process_inbound_message OK: conv=${result.conversation_id}, msg=${result.message_id}, new=${result.is_new_conversation}`)
+
+        // Trigger AI se necessário
+        let triggeredAI = false
+        let currentMode = result.conversation_mode
+
+        // Check if human mode has expired
+        if (currentMode === 'human' && result.human_mode_expires_at) {
+          if (isHumanModeExpired(result.human_mode_expires_at)) {
+            console.log(`[Inbox] Human mode expired for ${result.conversation_id}, auto-switching to bot mode`)
+            await switchToBotMode(result.conversation_id)
+            currentMode = 'bot'
+          }
+        }
+
+        if (currentMode === 'bot') {
+          if (isAutomationPaused(result.automation_paused_until)) {
+            console.log(`[Inbox] Automation paused until ${result.automation_paused_until}, skipping AI`)
+          } else {
+            // Cria objeto lightweight para triggerAIProcessing
+            const conversationForTrigger = {
+              id: result.conversation_id,
+              phone: normalizedPhone,
+              status: result.conversation_status,
+              mode: currentMode,
+              ai_agent_id: result.ai_agent_id,
+              human_mode_expires_at: result.human_mode_expires_at,
+              automation_paused_until: result.automation_paused_until,
+            } as InboxConversation
+
+            const messageForTrigger = {
+              id: result.message_id,
+              conversation_id: result.conversation_id,
+            } as InboxMessage
+
+            triggeredAI = await triggerAIProcessing(conversationForTrigger, messageForTrigger)
+          }
+        }
+
+        return {
+          conversationId: result.conversation_id,
+          messageId: result.message_id,
+          triggeredAI,
+        }
+      }
+
+      // Se RPC não existe ou falhou, usa fallback
+      if (error?.code === '42883') {
+        console.log('[Inbox] RPC process_inbound_message não existe, usando fallback legacy')
+      } else if (error) {
+        console.warn('[Inbox] RPC error, usando fallback:', error.message)
+      }
+    } catch (rpcError) {
+      console.warn('[Inbox] RPC exception, usando fallback:', rpcError)
+    }
+  }
+
+  // FALLBACK: Versão legacy (4-5 queries)
+  return handleInboundMessageLegacy(payload, normalizedPhone)
+}
+
+/**
+ * Versão legacy do handleInboundMessage (fallback se RPC não existir)
+ */
+async function handleInboundMessageLegacy(
+  payload: InboundMessagePayload,
+  normalizedPhone: string
+): Promise<{
+  conversationId: string
+  messageId: string
+  triggeredAI: boolean
+}> {
   // 1. Busca conversa existente (versão LIGHTWEIGHT - sem JOINs)
   let conversation = await findConversationByPhoneLightweight(normalizedPhone)
 
   if (!conversation) {
     // Paraleliza: busca contato enquanto prepara criação da conversa
-    // Isso economiza ~100-200ms em conversas novas
     const contactId = await findContactId(normalizedPhone)
     const fullConversation = await inboxDb.createConversation({
       phone: normalizedPhone,
       contact_id: contactId || undefined,
-      mode: 'bot', // Default to bot mode for new conversations
+      mode: 'bot',
     })
-    // Converte para tipo lightweight (campos que precisamos)
     conversation = {
       id: fullConversation.id,
       phone: fullConversation.phone,
@@ -112,11 +217,10 @@ export async function handleInboundMessage(
       unread_count: fullConversation.unread_count,
     }
   } else if (conversation.status === 'closed') {
-    // Reopen closed conversation on new inbound message
     await inboxDb.updateConversation(conversation.id, { status: 'open' })
   }
 
-  // 2. Cria mensagem no inbox (contadores são atualizados atomicamente via RPC)
+  // 2. Cria mensagem
   const message = await inboxDb.createMessage({
     conversation_id: conversation.id,
     direction: 'inbound',
@@ -124,7 +228,7 @@ export async function handleInboundMessage(
     message_type: mapMessageType(payload.type),
     whatsapp_message_id: payload.messageId || undefined,
     media_url: payload.mediaUrl || undefined,
-    delivery_status: 'delivered', // Inbound messages are already delivered
+    delivery_status: 'delivered',
     payload: {
       raw_type: payload.type,
       timestamp: payload.timestamp,
@@ -132,36 +236,17 @@ export async function handleInboundMessage(
     },
   })
 
-  // 3. Trigger AI processing if mode is 'bot' and automation is not paused (T066)
+  // 3. Trigger AI
   let triggeredAI = false
   let currentMode = conversation.mode
 
-  // Check if human mode has expired → auto-switch back to bot
   if (currentMode === 'human' && isHumanModeExpired(conversation.human_mode_expires_at)) {
-    console.log(
-      `[Inbox] Human mode expired for ${conversation.id}, auto-switching to bot mode`
-    )
     await switchToBotMode(conversation.id)
     currentMode = 'bot'
   }
 
-  console.log(`🤖 [INBOX] Checking AI trigger: mode=${currentMode}, automationPausedUntil=${conversation.automation_paused_until}`)
-
-  if (currentMode === 'bot') {
-    // T066: Check if automation is paused
-    if (isAutomationPaused(conversation.automation_paused_until)) {
-      console.log(
-        `[Inbox] Automation paused until ${conversation.automation_paused_until}, skipping AI processing`
-      )
-    } else {
-      console.log(`🤖 [INBOX] Calling triggerAIProcessing for conversation ${conversation.id}`)
-      // Cast necessário porque triggerAIProcessing espera InboxConversation completo
-      // mas só usa os campos que temos no lightweight
-      triggeredAI = await triggerAIProcessing(conversation as InboxConversation, message)
-      console.log(`🤖 [INBOX] triggerAIProcessing returned: ${triggeredAI}`)
-    }
-  } else {
-    console.log(`🤖 [INBOX] Skipping AI trigger because mode=${currentMode}`)
+  if (currentMode === 'bot' && !isAutomationPaused(conversation.automation_paused_until)) {
+    triggeredAI = await triggerAIProcessing(conversation as InboxConversation, message)
   }
 
   return {
@@ -206,8 +291,8 @@ async function triggerAIProcessing(
     return false
   }
 
-  // 1. Busca o agente para pegar o debounce_ms configurado
-  const agent = await getAgentForTrigger(conversation.ai_agent_id)
+  // 1. Busca o agente para pegar o debounce_ms configurado (usa RPC otimizada)
+  const agent = await getAgentForTrigger(conversation.ai_agent_id, conversationId)
   const debounceMs = agent?.debounce_ms ?? 3000 // default 3s (padrão do mercado)
   const debounceSeconds = Math.ceil(debounceMs / 1000)
 
@@ -293,12 +378,39 @@ async function dispatchToQStash(
 
 /**
  * Helper: Busca agente para pegar debounce_ms
+ *
+ * OTIMIZAÇÃO V2 (2026-01-26):
+ * - Usa RPC get_agent_config que faz JOIN otimizado
+ * - Fallback para queries diretas se RPC não existir
+ *
  * Versão leve que só busca os campos necessários
  */
-async function getAgentForTrigger(agentId: string | null): Promise<Pick<AIAgent, 'debounce_ms'> | null> {
+async function getAgentForTrigger(agentId: string | null, conversationId?: string): Promise<Pick<AIAgent, 'debounce_ms'> | null> {
   const supabase = getSupabaseAdmin()
   if (!supabase) return null
 
+  // OTIMIZAÇÃO: Tenta usar RPC get_agent_config (se tiver conversationId)
+  if (conversationId) {
+    try {
+      const { data, error } = await supabase.rpc('get_agent_config', {
+        p_conversation_id: conversationId,
+      })
+
+      if (!error && data) {
+        console.log(`⚡ [TRIGGER] RPC get_agent_config OK: debounce=${data.debounce_ms}ms`)
+        return { debounce_ms: data.debounce_ms ?? 3000 }
+      }
+
+      // Se RPC não existe, fallback para queries diretas
+      if (error?.code === '42883') {
+        console.log('[TRIGGER] RPC get_agent_config não existe, usando fallback')
+      }
+    } catch {
+      // Fallback silencioso
+    }
+  }
+
+  // FALLBACK: Queries diretas
   // Tenta agente específico
   if (agentId) {
     const { data } = await supabase

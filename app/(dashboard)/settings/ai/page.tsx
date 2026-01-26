@@ -701,7 +701,10 @@ export default function AICenterPage() {
 
   const handleProviderSelect = (nextProvider: AIProvider) => {
     setProvider(nextProvider)
-    setModel(getDefaultModelId(nextProvider))
+    // Usa o modelo já configurado no fallback (se existir) ou o padrão
+    const savedModel = fallback.models?.[nextProvider]
+    const nextModel = savedModel || getDefaultModelId(nextProvider)
+    setModel(nextModel)
     setFallback((current) => {
       const currentOrder = normalizeProviderOrder(current.order)
       return {
@@ -966,7 +969,7 @@ export default function AICenterPage() {
                         <div className="text-sm font-semibold text-[var(--ds-text-primary)]">{item.name}</div>
                         {status.isConfigured && (
                           <div className="text-xs text-[var(--ds-text-secondary)]">
-                            Modelo: {isActive ? primaryModelLabel : item.models[0]?.name ?? '—'}
+                            Modelo: {isActive ? primaryModelLabel : getModelLabel(item.id, fallback.models?.[item.id] || item.models[0]?.id || '')}
                           </div>
                         )}
                       </div>

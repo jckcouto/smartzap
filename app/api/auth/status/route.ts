@@ -22,15 +22,6 @@ export async function GET() {
       if (!isProd) console.log(...args)
     }
 
-    // #region agent log
-    const envSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const envSupabaseHost = envSupabaseUrl ? (() => {
-      try { return new URL(envSupabaseUrl).hostname } catch { return 'invalid' }
-    })() : 'missing'
-    fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1',location:'app/api/auth/status/route.ts:25',message:'Auth status env snapshot',data:{nodeEnv:process.env.NODE_ENV,vercelEnv:process.env.VERCEL_ENV,nextRuntime:process.env.NEXT_RUNTIME,nodeVersion:process.versions?.node||'unknown',hasMasterPassword:!!process.env.MASTER_PASSWORD,masterLength:process.env.MASTER_PASSWORD?process.env.MASTER_PASSWORD.length:0,setupComplete:process.env.SETUP_COMPLETE,hasSupabaseUrl:!!envSupabaseUrl,supabaseHost:envSupabaseHost},timestamp:Date.now()})}).catch(()=>{});
-    console.log('[debug][auth-status] env snapshot', { nodeEnv: process.env.NODE_ENV, vercelEnv: process.env.VERCEL_ENV, nextRuntime: process.env.NEXT_RUNTIME, nodeVersion: process.versions?.node || 'unknown', hasMasterPassword: !!process.env.MASTER_PASSWORD, masterLength: process.env.MASTER_PASSWORD ? process.env.MASTER_PASSWORD.length : 0, setupComplete: process.env.SETUP_COMPLETE, supabaseHost: envSupabaseHost });
-    // #endregion
-
     log('🔍 [AUTH-STATUS] === START ===')
     // Check if MASTER_PASSWORD is configured
     log('🔍 [AUTH-STATUS] MASTER_PASSWORD exists:', !!process.env.MASTER_PASSWORD)

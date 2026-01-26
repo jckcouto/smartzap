@@ -50,9 +50,9 @@ export function getSupabaseAdmin(): SupabaseClient | null {
 
     // #region agent log
     const adminUrlHost = url ? (() => { try { return new URL(url).hostname } catch { return 'invalid' } })() : 'missing'
-    const publishableKey = getSupabasePublishableKey()
-    fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1',location:'lib/supabase.ts:47',message:'Supabase admin env',data:{hasUrl:!!url,hasSecret:!!key,secretLength:key?key.length:0,hasPublishable:!!publishableKey,publishableLength:publishableKey?publishableKey.length:0,secretEqualsPublishable:!!(publishableKey&&key&&publishableKey===key),urlHost:adminUrlHost},timestamp:Date.now()})}).catch(()=>{});
-    console.log('[debug][supabase-admin] env', { hasUrl: !!url, hasSecret: !!key, secretLength: key ? key.length : 0, hasPublishable: !!publishableKey, publishableLength: publishableKey ? publishableKey.length : 0, secretEqualsPublishable: !!(publishableKey && key && publishableKey === key), urlHost: adminUrlHost });
+    const publishableKeyForLog = getSupabasePublishableKey()
+    fetch('http://127.0.0.1:7243/ingest/1294d6ce-76f2-430d-96ab-3ae4d7527327',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H1',location:'lib/supabase.ts:47',message:'Supabase admin env',data:{hasUrl:!!url,hasSecret:!!key,secretLength:key?key.length:0,hasPublishable:!!publishableKeyForLog,publishableLength:publishableKeyForLog?publishableKeyForLog.length:0,secretEqualsPublishable:!!(publishableKeyForLog&&key&&publishableKeyForLog===key),urlHost:adminUrlHost},timestamp:Date.now()})}).catch(()=>{});
+    console.log('[debug][supabase-admin] env', { hasUrl: !!url, hasSecret: !!key, secretLength: key ? key.length : 0, hasPublishable: !!publishableKeyForLog, publishableLength: publishableKeyForLog ? publishableKeyForLog.length : 0, secretEqualsPublishable: !!(publishableKeyForLog && key && publishableKeyForLog === key), urlHost: adminUrlHost });
     // #endregion
 
     // Silencia warnings durante build (SSG) - env vars não disponíveis é esperado

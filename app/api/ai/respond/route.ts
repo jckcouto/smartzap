@@ -139,8 +139,9 @@ export async function POST(req: NextRequest) {
     // 9. Envia resposta via WhatsApp (com split por parágrafos)
     console.log(`📤 [AI-RESPOND] Sending WhatsApp message to ${conversation.phone}...`)
 
-    // Busca o whatsapp_message_id da última mensagem inbound para o typing indicator
-    const lastInboundMessage = messages.find(m => m.direction === 'inbound' && m.whatsapp_message_id)
+    // Busca o whatsapp_message_id da ÚLTIMA mensagem inbound para typing indicator e quote
+    // IMPORTANTE: usar findLast() para pegar a mais recente, não a primeira
+    const lastInboundMessage = messages.findLast(m => m.direction === 'inbound' && m.whatsapp_message_id)
     const typingMessageId = lastInboundMessage?.whatsapp_message_id
 
     if (typingMessageId) {

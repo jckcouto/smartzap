@@ -136,33 +136,53 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 9. Envia resposta via WhatsApp
+    // 9. Envia resposta via WhatsApp (com split por parágrafos)
     console.log(`📤 [AI-RESPOND] Sending WhatsApp message to ${conversation.phone}...`)
 
-    const sendResult = await sendWhatsAppMessage({
-      to: conversation.phone,
-      type: 'text',
-      text: result.response.message,
-    })
+    // Split por \n\n (igual Evolution API) - cada parágrafo vira uma mensagem
+    const messageParts = splitMessageByParagraphs(result.response.message)
+    console.log(`📤 [AI-RESPOND] Message split into ${messageParts.length} parts`)
 
-    if (sendResult.success && sendResult.messageId) {
-      // Salva mensagem no banco
-      await inboxDb.createMessage({
-        conversation_id: conversationId,
-        direction: 'outbound',
-        content: result.response.message,
-        message_type: 'text',
-        whatsapp_message_id: sendResult.messageId,
-        delivery_status: 'sent',
-        ai_response_id: result.logId || null,
-        ai_sentiment: result.response.sentiment,
-        ai_sources: result.response.sources || null,
+    const messageIds: string[] = []
+
+    for (let i = 0; i < messageParts.length; i++) {
+      const part = messageParts[i]
+
+      const sendResult = await sendWhatsAppMessage({
+        to: conversation.phone,
+        type: 'text',
+        text: part,
       })
 
-      console.log(`✅ [AI-RESPOND] Message sent and saved: ${sendResult.messageId}`)
-    } else {
-      console.error(`❌ [AI-RESPOND] Failed to send WhatsApp message:`, sendResult.error)
+      if (sendResult.success && sendResult.messageId) {
+        messageIds.push(sendResult.messageId)
+
+        // Salva cada parte no banco
+        await inboxDb.createMessage({
+          conversation_id: conversationId,
+          direction: 'outbound',
+          content: part,
+          message_type: 'text',
+          whatsapp_message_id: sendResult.messageId,
+          delivery_status: 'sent',
+          ai_response_id: i === 0 ? result.logId || null : null, // Só a primeira tem o logId
+          ai_sentiment: i === messageParts.length - 1 ? result.response.sentiment : null, // Só a última tem sentiment
+          ai_sources: i === messageParts.length - 1 ? result.response.sources || null : null,
+        })
+
+        console.log(`✅ [AI-RESPOND] Part ${i + 1}/${messageParts.length} sent: ${sendResult.messageId}`)
+
+        // Delay entre mensagens (simula digitação humana)
+        if (i < messageParts.length - 1) {
+          const delay = Math.min(Math.max(part.length * 10, 800), 2000) // 10ms/char, min 800ms, max 2s
+          await new Promise(r => setTimeout(r, delay))
+        }
+      } else {
+        console.error(`❌ [AI-RESPOND] Failed to send part ${i + 1}:`, sendResult.error)
+      }
     }
+
+    console.log(`✅ [AI-RESPOND] All ${messageIds.length} messages sent`)
 
     // 10. Handoff se necessário
     if (result.response.shouldHandoff) {
@@ -311,4 +331,15 @@ async function handleAutoHandoff(
     message_type: 'internal_note',
     delivery_status: 'delivered',
   })
+}
+
+/**
+ * Divide mensagem por parágrafos (double line breaks)
+ * Igual ao Evolution API - cada parágrafo vira uma mensagem separada
+ */
+function splitMessageByParagraphs(message: string): string[] {
+  return message
+    .split('\n\n')
+    .map(part => part.trim())
+    .filter(part => part.length > 0)
 }

@@ -295,8 +295,10 @@ function TemplateMessageContent({ parsed, time, deliveryStatus }: {
           </div>
         )}
 
-        {/* Time & Status */}
+        {/* Template name, Time & Status */}
         <div className="flex items-center justify-end gap-1.5 mt-3">
+          <span className="text-[10px] text-zinc-500">📋 {parsed.templateName}</span>
+          <span className="text-[10px] text-zinc-600">·</span>
           <span className="text-[10px] text-zinc-500">{time}</span>
           {deliveryStatus && <DeliveryStatusIcon status={deliveryStatus} />}
         </div>
